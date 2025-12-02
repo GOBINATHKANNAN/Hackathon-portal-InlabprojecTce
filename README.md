@@ -50,170 +50,269 @@ A comprehensive web application for managing student hackathon participations, v
 *   **Year-wise Display**: Shows approved hackathons organized by year (1st, 2nd, 3rd, 4th)
 *   **Hackathon Cards**: Each card displays:
     *   Student Name
-    *   Register Number
-    *   Hackathon Title
-    *   Organization
-    *   Mode (Online/Offline)
-    *   Status: ✔ Accepted
-*   **TCE Branding**: College colors (#830000) and imagery
-*   **Contact Information**: TCE address, phone, website
 
-## 📧 Email Notifications
+## 🛠️ Technology Stack
 
-All emails include TCE branding and contact information:
+### Backend
+- **Node.js** - Runtime environment
+- **Express.js** - Web framework
+- **MongoDB** - Database with Mongoose ODM
+- **JWT** - Authentication tokens
+- **Nodemailer** - Email service
+- **Multer** - File upload handling
+- **Bcrypt** - Password hashing
 
-1.  **Registration**: Welcome email with login details
-2.  **Submission**: Confirmation email after hackathon submission
-3.  **Acceptance**: Congratulations email with participation verification
-4.  **Decline**: Email with reason for rejection
-5.  **Participation Alert**: Reminder email if participation is low
+### Frontend
+- **React** - UI framework
+- **Vite** - Build tool
+- **CSS3** - Styling
+- **Recharts** - Data visualization
+- **Axios** - HTTP client
 
-## 🛠️ Tech Stack
-*   **Frontend**: React.js, Vite, Framer Motion, Recharts, Lucide React
-*   **Backend**: Node.js, Express.js, MongoDB (Mongoose)
-*   **Authentication**: JWT, bcrypt
-*   **Email**: Nodemailer (Gmail SMTP)
-*   **File Upload**: Multer (Local storage in `/uploads`)
+### Database
+- **MongoDB** - NoSQL database
+- **Mongoose** - Object Data Modeling
 
-## 📋 Prerequisites
-*   Node.js (v14+)
-*   MongoDB (Local or Atlas)
-*   Gmail account (for email notifications)
+## 🚀 Quick Start
 
-## 🚀 Installation & Setup
+### Prerequisites
+- Node.js (v16 or higher)
+- MongoDB (local or cloud instance)
+- Gmail account with App Password for email service
 
-### 1. Clone/Download the Project
+### Installation
+
+1. **Clone the repository**
 ```bash
-cd "C:/Users/gideonsamuel/New folder (10)"
+git clone https://github.com/GOBINATHKANNAN/hackathon-enhanced.git
+cd hackathon-enhanced
 ```
 
-### 2. Backend Setup
+2. **Backend Setup**
 ```bash
 cd backend
 npm install
 ```
 
-**Configure Environment Variables:**
-Edit `backend/.env`:
+3. **Configure Environment Variables**
+Create `backend/.env`:
 ```env
 PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/hackathon_portal
+MONGO_URI=mongodb://localhost:27017/hackathon_portal
 JWT_SECRET=your_secret_key_here
 EMAIL_USER=your_gmail@gmail.com
 EMAIL_PASS=your_app_password
 ```
 
-> **Important**: For email notifications to work, you must:
-> 1. Use a Gmail account
-> 2. Enable 2-Factor Authentication
-> 3. Generate an App Password (Google Account → Security → App Passwords)
-> 4. Use the App Password in `EMAIL_PASS`
-
-**Seed Database** (Creates default accounts):
+4. **Database Setup**
 ```bash
+# Seed default accounts
 node seed.js
 ```
 
-This creates:
-*   **Admin**: `admin@portal.com` / `adminpassword`
-*   **Proctor**: `proctor@portal.com` / `proctorpassword`
-*   **Student**: `student@student.tce.edu` / `studentpassword`
-
-**Start Backend Server:**
-```bash
-npm start
-```
-Server runs on `http://localhost:5000`
-
-### 3. Frontend Setup
-Open a new terminal:
+5. **Frontend Setup**
 ```bash
 cd frontend
 npm install
+```
+
+### Running the Application
+
+#### Option 1: Manual Start
+```bash
+# Terminal 1 - Backend
+cd backend
+npm start
+
+# Terminal 2 - Frontend  
+cd frontend
 npm run dev
 ```
-App runs on `http://localhost:5173`
 
-### 4. One-Click Run (Windows)
-Double-click `run_project.bat` in the root directory to start both servers automatically.
+#### Option 2: Batch File (Windows)
+```bash
+run_project.bat
+```
 
-## 📱 Usage Guide
+### Access the Application
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:5000
 
-### For Students:
-1.  Go to `http://localhost:5173/signup`
-2.  Register with `@student.tce.edu` email
-3.  Check your email for welcome message
-4.  Login and submit hackathon details with certificate
-5.  Track your participation progress on the dashboard
-6.  Receive email notifications for acceptance/decline
+## 👤 Default Accounts
 
-### For Proctors:
-1.  Login with proctor credentials
-2.  View assigned students' hackathon submissions
-3.  Click "View" to download/verify uploaded certificates
-4.  Accept or Decline hackathon participations
-5.  Students receive automatic email notifications
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | admin@portal.com | adminpassword |
+| **Proctor** | proctor@portal.com | proctorpassword |
+| **Student** | student@student.tce.edu | studentpassword |
 
-### For Admins:
-1.  Login with admin credentials
-2.  View comprehensive statistics
-3.  Monitor participation completion rates
-4.  Export data to CSV for reports
-5.  View all hackathons and students
-6.  Send participation reminder emails
+## 📧 Email Configuration
 
-## 📂 File Storage
-*   All uploaded files are stored in `backend/uploads/`
-*   Supported formats: PDF, PPT, PPTX, JPG, PNG
-*   Only file paths are stored in MongoDB
+### Gmail App Password Setup
+1. Go to [Google Account Settings](https://myaccount.google.com/)
+2. Enable 2-Factor Authentication
+3. Go to [App Passwords](https://myaccount.google.com/apppasswords)
+4. Generate new app password for "Mail" on "Other (Custom name)"
+5. Use the 16-character password in `EMAIL_PASS`
 
-## 🎨 Branding
-*   **Primary Color**: #830000 (TCE Red)
-*   **Logo**: TCE header banner
-*   **Background**: TCE building image
-*   **Font**: Inter (Google Fonts)
+### Email Templates Included
+- Welcome emails for new registrations
+- Hackathon submission confirmations  
+- Approval/decline notifications
+- Participation reminders
 
-## 📞 Contact Information
-**Thiagarajar College of Engineering**  
-Madurai - 625 015  
-Tamil Nadu, India  
-📞 +91 452 2482240  
-🌐 www.tce.edu
+## 🏗️ Project Structure
 
-## 🔐 Default Credentials
+```
+hackathon-enhanced/
+├── backend/
+│   ├── controllers/     # Route handlers
+│   ├── middleware/      # Authentication & file upload
+│   ├── models/         # Database schemas
+│   ├── routes/         # API routes
+│   ├── services/       # Email & cron services
+│   └── uploads/        # File storage
+├── frontend/
+│   ├── src/
+│   │   ├── components/  # React components
+│   │   ├── pages/      # Page components
+│   │   ├── context/    # React context
+│   │   └── services/   # API services
+│   └── public/
+├── README.md
+├── QUICK_START.md
+└── run_project.bat
+```
 
-| Role    | Email                      | Password         |
-|---------|----------------------------|------------------|
-| Admin   | admin@portal.com           | adminpassword    |
-| Proctor | proctor@portal.com         | proctorpassword  |
-| Student | student@student.tce.edu    | studentpassword  |
+## 🔧 API Endpoints
 
-## 🐛 Troubleshooting
+### Authentication
+- `POST /api/auth/register/student` - Student registration
+- `POST /api/auth/login/student` - Student login
+- `POST /api/auth/login/proctor` - Proctor login
+- `POST /api/auth/login/admin` - Admin login
 
-**Login Failed:**
-*   Ensure you ran `node seed.js` in the backend folder
-*   Check MongoDB is running
+### Hackathons
+- `POST /api/hackathons/submit` - Submit hackathon
+- `GET /api/hackathons/my-hackathons` - Student's hackathons
+- `GET /api/hackathons/assigned` - Proctor's assigned hackathons
+- `PUT /api/hackathons/:id/status` - Update hackathon status
+- `GET /api/hackathons/accepted` - Public approved hackathons
 
-**Email Not Sending:**
-*   Verify `EMAIL_USER` and `EMAIL_PASS` in `.env`
-*   Use Gmail App Password, not regular password
-*   Check internet connection
+### User Management (Admin Only)
+- `GET /api/users/students` - Get all students
+- `GET /api/users/proctors` - Get all proctors
+- `GET /api/users/admins` - Get all admins
+- `PUT /api/users/students/:id` - Update student
+- `DELETE /api/users/students/:id` - Delete student
 
-**File Upload Error:**
-*   Ensure `backend/uploads` folder exists (auto-created)
-*   Check file size (default limit: 10MB)
+## 🎯 Key Features in Detail
 
-**"No approved hackathons":**
-*   This is normal for a fresh database
-*   Login as Proctor and accept a student's submission
+### User Management System
+- **Complete CRUD Operations**: Create, read, update, delete all user types
+- **Role-Based Access**: Admin, Proctor, Student roles with specific permissions
+- **Persistent Storage**: All user data stored in MongoDB database
+- **Security Features**: Password hashing, JWT authentication, input validation
 
-## 📝 Notes
-*   Students must use `@student.tce.edu` email to register
-*   Each accepted hackathon participation counts toward requirements
-*   Students need required hackathon participations before 5th semester
-*   Participation alerts are sent automatically on login
-*   All emails include TCE contact information
+### Hackathon Submission Workflow
+1. **Student Registration**: Email verification with @student.tce.edu validation
+2. **Hackathon Submission**: Upload certificates and participation details
+3. **Proctor Review**: Evaluate submissions and verify authenticity
+4. **Status Updates**: Email notifications for approval/decline
+5. **Credit Tracking**: Automatic credit calculation for students
 
-## 🎓 Developed For⚠️ 
-Department of Computer Science and Business Systems  
-Thiagarajar College of Engineering, Madurai
+### Email Service Integration
+- **Gmail SMTP**: Reliable email delivery through Gmail
+- **Template System**: Professional email templates with TCE branding
+- **Error Handling**: Graceful fallback if email service fails
+- **Logging**: Comprehensive email delivery tracking
+
+## 🔒 Security Features
+
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: Bcrypt encryption for password storage
+- **Role-Based Authorization**: Middleware for role validation
+- **Input Validation**: Comprehensive input sanitization
+- **File Upload Security**: Multer configuration for safe file handling
+
+## 📊 Data Models
+
+### Student Model
+```javascript
+{
+  name: String,
+  email: String (unique),
+  password: String (hashed),
+  registerNo: String (unique),
+  department: String,
+  year: String ['1st', '2nd', '3rd', '4th'],
+  credits: Number (default: 0),
+  verified: Boolean (default: false)
+}
+```
+
+### Hackathon Model
+```javascript
+{
+  studentId: ObjectId,
+  proctorId: ObjectId,
+  hackathonTitle: String,
+  organization: String,
+  mode: String ['Online', 'Offline'],
+  date: Date,
+  year: Number,
+  description: String,
+  certificateFilePath: String,
+  status: String ['Pending', 'Accepted', 'Declined'],
+  rejectionReason: String,
+  participantCount: Number
+}
+```
+
+## 🚀 Deployment
+
+### Environment Variables
+```env
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/hackathon_portal
+JWT_SECRET=your_secure_secret_key
+EMAIL_USER=your_gmail@gmail.com
+EMAIL_PASS=your_gmail_app_password
+```
+
+### Production Setup
+1. Set up MongoDB Atlas or MongoDB server
+2. Configure environment variables
+3. Build frontend: `npm run build`
+4. Use process manager like PM2 for backend
+5. Set up reverse proxy with Nginx (optional)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit changes: `git commit -m 'Add feature'`
+4. Push to branch: `git push origin feature-name`
+5. Submit a pull request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Support
+
+For support and queries:
+- **Thiagarajar College of Engineering**
+- **Department of Computer Science and Business Systems**
+- **Email**: support@tce.edu
+- **Phone**: +91 452 2482240
+
+## 🎉 Acknowledgments
+
+- **TCE CSBS Department** - For project guidance and support
+- **Students** - For testing and feedback
+- **Open Source Community** - For the amazing tools and libraries
+
+---
+
+**Built with ❤️ for TCE CSBS Students**
