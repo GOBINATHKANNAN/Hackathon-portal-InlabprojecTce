@@ -212,6 +212,116 @@ const emailTemplates = {
                 </div>
             </div>
         `
+    }),
+
+    newUpcomingHackathon: (studentName, studentEmail, hackathonTitle, organization, registrationDeadline) => ({
+        from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
+        to: studentEmail,
+        subject: `🚀 New Upcoming Hackathon: ${hackathonTitle}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #830000, #a52a2a); color: white; padding: 20px; text-align: center;">
+                    <h2>🚀 New Upcoming Hackathon!</h2>
+                </div>
+                <div style="padding: 20px; background: #f9f9f9;">
+                    <p>Dear ${studentName},</p>
+                    <p>We're excited to announce a new upcoming hackathon that you might be interested in!</p>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #830000;">
+                        <h3 style="margin-top: 0; color: #830000;">${hackathonTitle}</h3>
+                        <p><strong>Organization:</strong> ${organization}</p>
+                        <p><strong>Registration Deadline:</strong> ${new Date(registrationDeadline).toLocaleDateString()}</p>
+                    </div>
+                    
+                    <p>Visit the portal to view more details and enroll if you're interested!</p>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="#" style="background: #830000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                            View Hackathon Details
+                        </a>
+                    </div>
+                    
+                    <hr style="margin: 20px 0;">
+                    <div style="background: white; padding: 15px; border-left: 4px solid #830000;">
+                        <h3 style="margin-top: 0;">Contact Information</h3>
+                        <p><strong>Thiagarajar College of Engineering</strong></p>
+                        <p>Madurai - 625 015</p>
+                        <p>Tamil Nadu, India</p>
+                        <p>📞 +91 452 2482240</p>
+                        <p>🌐 www.tce.edu</p>
+                    </div>
+                </div>
+            </div>
+        `
+    }),
+
+    participationRequest: (proctorName, proctorEmail, studentName, hackathonTitle) => ({
+        from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
+        to: proctorEmail,
+        subject: `📋 Participation Request: ${studentName} for ${hackathonTitle}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #2196f3; color: white; padding: 20px; text-align: center;">
+                    <h2>📋 New Participation Request</h2>
+                </div>
+                <div style="padding: 20px; background: #f9f9f9;">
+                    <p>Dear ${proctorName},</p>
+                    <p>You have received a new participation request from a student for an upcoming hackathon.</p>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
+                        <h3 style="margin-top: 0; color: #2196f3;">Request Details</h3>
+                        <p><strong>Student:</strong> ${studentName}</p>
+                        <p><strong>Hackathon:</strong> ${hackathonTitle}</p>
+                        <p><strong>Status:</strong> Pending Approval</p>
+                    </div>
+                    
+                    <p>Please log in to the portal to review and approve/decline this request.</p>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="#" style="background: #2196f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                            Review Request
+                        </a>
+                    </div>
+                    
+                    <hr style="margin: 20px 0;">
+                    <div style="background: white; padding: 15px; border-left: 4px solid #830000;">
+                        <h3 style="margin-top: 0;">Contact Information</h3>
+                        <p><strong>Thiagarajar College of Engineering</strong></p>
+                        <p>Madurai - 625 015</p>
+                        <p>Tamil Nadu, India</p>
+                        <p>📞 +91 452 2482240</p>
+                        <p>🌐 www.tce.edu</p>
+                    </div>
+                </div>
+            </div>
+        `
+    }),
+
+    participationStatusUpdate: (studentName, studentEmail, hackathonTitle, status, rejectionReason = '') => ({
+        from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
+        to: studentEmail,
+        subject: `Participation Request ${status}: ${hackathonTitle}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: ${status === 'Approved' ? '#4caf50' : '#d32f2f'}; color: white; padding: 20px; text-align: center;">
+                    <h2>Participation Request ${status}</h2>
+                </div>
+                <div style="padding: 20px; background: #f9f9f9;">
+                    <p>Dear ${studentName},</p>
+                    <p>Your participation request for <strong>${hackathonTitle}</strong> has been <strong>${status}</strong>.</p>
+                    ${status === 'Declined' ? `<p style="color: #d32f2f;"><strong>Reason:</strong> ${rejectionReason}</p>` : '<p style="color: #4caf50;">Congratulations! You can now participate in this hackathon.</p>'}
+                    ${status === 'Approved' ? '<p>Remember to submit your certificate after completing the hackathon for verification.</p>' : ''}
+                    
+                    <hr style="margin: 20px 0;">
+                    <div style="background: white; padding: 15px; border-left: 4px solid #830000;">
+                        <h3 style="margin-top: 0;">Contact Information</h3>
+                        <p><strong>Thiagarajar College of Engineering</strong></p>
+                        <p>Madurai - 625 015</p>
+                        <p>Tamil Nadu, India</p>
+                        <p>📞 +91 452 2482240</p>
+                        <p>🌐 www.tce.edu</p>
+                    </div>
+                </div>
+            </div>
+        `
     })
 };
 

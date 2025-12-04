@@ -4,6 +4,8 @@ import './Dashboard.css';
 
 const ProctorDashboard = () => {
     const [hackathons, setHackathons] = useState([]);
+    const [participationApprovals, setParticipationApprovals] = useState([]);
+    const [activeSection, setActiveSection] = useState('participation');
     const [selectedYear, setSelectedYear] = useState('');
     const [years, setYears] = useState([]);
     const [selectedHackathon, setSelectedHackathon] = useState('');
@@ -19,6 +21,7 @@ const ProctorDashboard = () => {
 
     useEffect(() => {
         fetchAssignedHackathons();
+        fetchParticipationApprovals();
         fetchHackathonYears();
         fetchHackathonTitles();
     }, []);
@@ -31,6 +34,15 @@ const ProctorDashboard = () => {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchParticipationApprovals = async () => {
+        try {
+            const res = await API.get('/upcoming-hackathons/proctor/approvals');
+            setParticipationApprovals(res.data);
+        } catch (err) {
+            console.error('Error fetching participation approvals:', err);
         }
     };
 
@@ -105,77 +117,277 @@ const ProctorDashboard = () => {
         }
     };
 
+    const handleParticipationApproval = async (approvalId, status, reason = '') => {
+        try {
+            await API.put(`/upcoming-hackathons/proctor/${approvalId}/status`, { 
+                status, 
+                rejectionReason: reason 
+            });
+            
+            // Refresh participation approvals
+            await fetchParticipationApprovals();
+            
+            alert(`Participation request ${status} successfully!`);
+        } catch (err) {
+            alert('Update failed: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     if (loading) return <div className="dashboard-container"><p>Loading assignments...</p></div>;
 
     return (
         <div className="dashboard-container">
             <h2 style={{ color: '#830000', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>Proctor Dashboard</h2>
 
-            {/* Filtering Section */}
-            <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Filter Hackathons</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Filter by Year:</label>
-                        <select 
-                            value={selectedYear} 
-                            onChange={(e) => {
-                                setSelectedYear(e.target.value);
-                                if (e.target.value) {
-                                    fetchHackathonsByYear(e.target.value);
-                                } else {
-                                    fetchAssignedHackathons();
-                                }
-                            }}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                        >
-                            <option value=''>All Years</option>
-                            {years.map(year => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>View Participants:</label>
-                        <select 
-                            value={selectedHackathon} 
-                            onChange={(e) => setSelectedHackathon(e.target.value)}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                        >
-                            <option value=''>Select Hackathon</option>
-                            {hackathonTitles.map(title => (
-                                <option key={title} value={title}>{title}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>&nbsp;</label>
-                        <button
-                            onClick={() => {
-                                if (selectedHackathon && selectedYear) {
-                                    fetchHackathonParticipants(selectedHackathon, selectedYear);
-                                } else {
-                                    alert('Please select both hackathon and year');
-                                }
-                            }}
-                            disabled={!selectedHackathon || !selectedYear}
-                            style={{ 
-                                width: '100%', 
-                                padding: '8px', 
-                                borderRadius: '4px', 
-                                border: 'none', 
-                                background: (!selectedHackathon || !selectedYear) ? '#ccc' : '#830000', 
-                                color: 'white',
-                                cursor: (!selectedHackathon || !selectedYear) ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            View Participants
-                        </button>
-                    </div>
-                </div>
+            {/* Section Navigation */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
+                <button
+                    onClick={() => setActiveSection('participation')}
+                    style={{
+                        padding: '10px 20px',
+                        background: activeSection === 'participation' ? '#830000' : '#f5f5f5',
+                        color: activeSection === 'participation' ? 'white' : '#333',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.95rem'
+                    }}
+                >
+                    📋 Participation Approval
+                </button>
+                <button
+                    onClick={() => setActiveSection('certification')}
+                    style={{
+                        padding: '10px 20px',
+                        background: activeSection === 'certification' ? '#830000' : '#f5f5f5',
+                        color: activeSection === 'certification' ? 'white' : '#333',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.95rem'
+                    }}
+                >
+                    📜 Certification Verification
+                </button>
             </div>
 
-            <div className="list-card">
+            {activeSection === 'participation' && (
+                <div>
+                    <h3 style={{ color: '#830000', marginBottom: '20px' }}>📋 Participation Approval Requests</h3>
+                    {participationApprovals.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '8px', color: '#666' }}>
+                            <p style={{ fontSize: '2rem', margin: 0 }}>📭</p>
+                            <p>No participation requests pending approval.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gap: '20px' }}>
+                            {participationApprovals.map(approval => (
+                                <div key={approval._id} className="hackathon-card-item" style={{
+                                    background: 'white',
+                                    padding: '20px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #eee',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                        <div>
+                                            <h4 style={{ color: '#830000', margin: '0 0 10px 0' }}>
+                                                {approval.upcomingHackathonId?.title || 'Hackathon'}
+                                            </h4>
+                                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                                <strong>Student:</strong> {approval.enrollmentDetails.studentName} ({approval.enrollmentDetails.registerNo})
+                                            </p>
+                                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                                <strong>Department:</strong> {approval.enrollmentDetails.department} • {approval.enrollmentDetails.year} Year
+                                            </p>
+                                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                                <strong>Email:</strong> {approval.enrollmentDetails.email}
+                                            </p>
+                                            <p style={{ margin: '5px 0', color: '#666' }}>
+                                                <strong>Phone:</strong> {approval.enrollmentDetails.phone}
+                                            </p>
+                                        </div>
+                                        <span className={`status-badge ${approval.status.toLowerCase()}`} style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '20px',
+                                            fontSize: '0.85rem',
+                                            fontWeight: '600',
+                                            background: approval.status === 'Approved' ? '#e8f5e9' : approval.status === 'Declined' ? '#ffebee' : '#fff3e0',
+                                            color: approval.status === 'Approved' ? '#2e7d32' : approval.status === 'Declined' ? '#c62828' : '#ef6c00',
+                                            border: `1px solid ${approval.status === 'Approved' ? '#a5d6a7' : approval.status === 'Declined' ? '#ef9a9a' : '#ffe0b2'}`
+                                        }}>
+                                            {approval.status === 'Pending' ? '⏳ Pending' : approval.status === 'Approved' ? '✅ Approved' : '❌ Declined'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Experience:</strong> {approval.enrollmentDetails.experience}
+                                        </p>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Motivation:</strong> {approval.enrollmentDetails.motivation}
+                                        </p>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Skills:</strong> {approval.enrollmentDetails.skills}
+                                        </p>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Team Preference:</strong> {approval.enrollmentDetails.teamPreference}
+                                        </p>
+                                    </div>
+                                    
+                                    {approval.status === 'Pending' && (
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <button
+                                                onClick={() => handleParticipationApproval(approval._id, 'Approved')}
+                                                style={{
+                                                    background: '#4caf50',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem'
+                                                }}
+                                            >
+                                                ✅ Approve
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedId(approval._id);
+                                                    setRejectionReason('');
+                                                }}
+                                                style={{
+                                                    background: '#d32f2f',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem'
+                                                }}
+                                            >
+                                                ❌ Decline
+                                            </button>
+                                            {selectedId === approval._id && (
+                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1 }}>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Rejection reason..."
+                                                        value={rejectionReason}
+                                                        onChange={(e) => setRejectionReason(e.target.value)}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '8px',
+                                                            border: '1px solid #ddd',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={() => handleParticipationApproval(approval._id, 'Declined', rejectionReason)}
+                                                        style={{
+                                                            background: '#d32f2f',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            padding: '8px 16px',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Submit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedId(null);
+                                                            setRejectionReason('');
+                                                        }}
+                                                        style={{
+                                                            background: '#666',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            padding: '8px 16px',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {activeSection === 'certification' && (
+                <div>
+                    <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Filter Hackathons</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Filter by Year:</label>
+                                <select 
+                                    value={selectedYear} 
+                                    onChange={(e) => {
+                                        setSelectedYear(e.target.value);
+                                        if (e.target.value) {
+                                            fetchHackathonsByYear(e.target.value);
+                                        } else {
+                                            fetchAssignedHackathons();
+                                        }
+                                    }}
+                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                >
+                                    <option value=''>All Years</option>
+                                    {years.map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>View Participants:</label>
+                                <select 
+                                    value={selectedHackathon} 
+                                    onChange={(e) => setSelectedHackathon(e.target.value)}
+                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                >
+                                    <option value=''>Select Hackathon</option>
+                                    {hackathonTitles.map(title => (
+                                        <option key={title} value={title}>{title}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>&nbsp;</label>
+                                <button
+                                    onClick={() => {
+                                        if (selectedHackathon && selectedYear) {
+                                            fetchHackathonParticipants(selectedHackathon, selectedYear);
+                                        } else {
+                                            alert('Please select both hackathon and year');
+                                        }
+                                    }}
+                                    disabled={!selectedHackathon || !selectedYear}
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '8px', 
+                                        borderRadius: '4px', 
+                                        border: 'none', 
+                                        background: (!selectedHackathon || !selectedYear) ? '#ccc' : '#830000', 
+                                        color: 'white',
+                                        cursor: (!selectedHackathon || !selectedYear) ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    View Participants
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="list-card">
                 <h3 style={{ marginTop: 0 }}>Assigned Hackathons</h3>
                 {hackathons.length === 0 ? (
                     <p style={{ color: '#666', fontStyle: 'italic' }}>No hackathons assigned to you yet.</p>
@@ -287,6 +499,8 @@ const ProctorDashboard = () => {
                     </div>
                 )}
             </div>
+                </div>
+            )}
 
             {/* Participants Modal */}
             {showParticipants && (

@@ -1,43 +1,44 @@
 const Hackathon = require('../models/Hackathon');
 const Student = require('../models/Student');
 const Proctor = require('../models/Proctor');
+const ParticipationApproval = require('../models/ParticipationApproval');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 
 // Submit Hackathon
 exports.submitHackathon = async (req, res) => {
     try {
-        const { hackathonTitle, organization, mode, date, year, description } = req.body;
+        const { hackathonTitle, organization, mode, date, year, description, upcomingHackathonId } = req.body;
         const certificateFilePath = req.files['certificate'] ? req.files['certificate'][0].path : null;
 
         if (!certificateFilePath) {
             return res.status(400).json({ message: 'Certificate file is required' });
         }
 
-        // Check if hackathon already exists for the year
-        const existingHackathon = await Hackathon.findOne({ 
-            hackathonTitle: hackathonTitle.trim(), 
-            year: parseInt(year) 
-        });
-
-        let hackathon;
-        if (existingHackathon) {
-            // Increment participant count
-            existingHackathon.participantCount += 1;
-            await existingHackathon.save();
-            hackathon = existingHackathon;
-        } else {
-            // Create new hackathon
-            hackathon = await Hackathon.create({
+        // If submitting for an upcoming hackathon, verify approval
+        if (upcomingHackathonId) {
+            const approval = await ParticipationApproval.findOne({
                 studentId: req.user.id,
-                hackathonTitle: hackathonTitle.trim(),
-                organization: organization.trim(),
-                mode,
-                date: new Date(date),
-                year: parseInt(year),
-                description: description.trim(),
-                certificateFilePath
+                upcomingHackathonId,
+                status: 'Approved'
             });
+
+            if (!approval) {
+                return res.status(403).json({ message: 'You do not have approval to submit for this hackathon' });
+            }
         }
+
+        // Create new hackathon submission
+        const hackathon = await Hackathon.create({
+            studentId: req.user.id,
+            hackathonTitle: hackathonTitle.trim(),
+            organization: organization.trim(),
+            mode,
+            date: new Date(date),
+            year: parseInt(year),
+            description: description.trim(),
+            certificateFilePath,
+            upcomingHackathonId: upcomingHackathonId || undefined
+        });
 
         // Find student to get department and assign proctor
         const student = await Student.findById(req.user.id);
@@ -192,11 +193,11 @@ exports.getHackathonsByYear = async (req, res) => {
     try {
         const { year } = req.query;
         const filter = year ? { year: parseInt(year) } : {};
-        
+
         const hackathons = await Hackathon.find(filter)
             .populate('studentId', 'name registerNo year department')
             .sort({ createdAt: -1 });
-        
+
         res.json(hackathons);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -207,17 +208,17 @@ exports.getHackathonsByYear = async (req, res) => {
 exports.getHackathonParticipants = async (req, res) => {
     try {
         const { hackathonTitle, year } = req.query;
-        
+
         if (!hackathonTitle || !year) {
             return res.status(400).json({ message: 'Hackathon title and year are required' });
         }
 
-        const participants = await Hackathon.find({ 
-            hackathonTitle: hackathonTitle.trim(), 
-            year: parseInt(year) 
+        const participants = await Hackathon.find({
+            hackathonTitle: hackathonTitle.trim(),
+            year: parseInt(year)
         })
-        .populate('studentId', 'name registerNo year department email')
-        .sort({ createdAt: -1 });
+            .populate('studentId', 'name registerNo year department email')
+            .sort({ createdAt: -1 });
 
         res.json(participants);
     } catch (error) {
@@ -229,7 +230,7 @@ exports.getHackathonParticipants = async (req, res) => {
 exports.getStudentHackathons = async (req, res) => {
     try {
         const { studentId } = req.params;
-        
+
         const hackathons = await Hackathon.find({ studentId })
             .populate('studentId', 'name registerNo year department')
             .sort({ createdAt: -1 });
@@ -266,6 +267,32 @@ exports.getHackathonStats = async (req, res) => {
         ]);
 
         res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get Hackathon Names for Autocomplete
+exports.getHackathonNames = async (req, res) => {
+    try {
+        const { query } = req.query;
+
+        let matchStage = {};
+        if (query) {
+            matchStage = {
+                hackathonTitle: { $regex: query, $options: 'i' }
+            };
+        }
+
+        const hackathonNames = await Hackathon.aggregate([
+            { $match: matchStage },
+            { $group: { _id: '$hackathonTitle', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 20 },
+            { $project: { name: '$_id', count: 1, _id: 0 } }
+        ]);
+
+        res.json(hackathonNames);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

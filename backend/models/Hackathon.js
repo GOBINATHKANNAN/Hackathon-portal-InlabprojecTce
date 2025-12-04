@@ -12,11 +12,13 @@ const hackathonSchema = new mongoose.Schema({
     status: { type: String, default: 'Pending', enum: ['Pending', 'Accepted', 'Declined'] },
     proctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Proctor' },
     rejectionReason: { type: String },
-    participantCount: { type: Number, default: 1 }
+    participantCount: { type: Number, default: 1 },
+    upcomingHackathonId: { type: mongoose.Schema.Types.ObjectId, ref: 'UpcomingHackathon' }
 }, { timestamps: true });
 
 // Index for efficient queries
-hackathonSchema.index({ hackathonTitle: 1, year: 1 }, { unique: true });
+// Removed unique index to allow multiple students to submit for the same hackathon title
+hackathonSchema.index({ hackathonTitle: 1, year: 1 });
 hackathonSchema.index({ studentId: 1 });
 hackathonSchema.index({ year: 1 });
 hackathonSchema.index({ status: 1 });

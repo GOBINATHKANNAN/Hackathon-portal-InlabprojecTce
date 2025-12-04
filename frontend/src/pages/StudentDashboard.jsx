@@ -22,9 +22,14 @@ const StudentDashboard = () => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     // Ref for certificate input to reset it after submission
     const certificateRef = useRef(null);
+
+    const [approvedEnrollments, setApprovedEnrollments] = useState([]);
+    const [selectedEnrollmentId, setSelectedEnrollmentId] = useState('');
 
     useEffect(() => {
         const loadData = async () => {
@@ -32,11 +37,24 @@ const StudentDashboard = () => {
             await Promise.all([
                 fetchHackathons(),
                 fetchCredits(),
-                checkCreditAlert()
+                checkCreditAlert(),
+                fetchApprovedEnrollments()
             ]);
             setLoading(false);
         };
         loadData();
+
+        // Add click outside listener to close suggestions
+        const handleClickOutside = (event) => {
+            if (!event.target.closest('.form-group')) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
     }, []);
 
     const fetchHackathons = async () => {
@@ -46,6 +64,16 @@ const StudentDashboard = () => {
         } catch (err) {
             console.error('Error fetching hackathons:', err);
             setError('Failed to load hackathons');
+        }
+    };
+
+    const fetchApprovedEnrollments = async () => {
+        try {
+            const res = await API.get('/upcoming-hackathons/my/enrollments');
+            const approved = res.data.filter(e => e.status === 'Approved');
+            setApprovedEnrollments(approved);
+        } catch (err) {
+            console.error('Error fetching enrollments:', err);
         }
     };
 
@@ -66,6 +94,45 @@ const StudentDashboard = () => {
         }
     };
 
+    const fetchHackathonSuggestions = async (query) => {
+        try {
+            const res = await API.get(`/hackathons/names?query=${encodeURIComponent(query)}`);
+            setSuggestions(res.data);
+            setShowSuggestions(true);
+        } catch (err) {
+            console.error('Error fetching suggestions:', err);
+        }
+    };
+
+    const handleSuggestionClick = (suggestion) => {
+        setFormData({ ...formData, hackathonTitle: suggestion.name });
+        setSuggestions([]);
+        setShowSuggestions(false);
+    };
+
+    const handleEnrollmentSelect = (e) => {
+        const enrollmentId = e.target.value;
+        setSelectedEnrollmentId(enrollmentId);
+
+        if (enrollmentId) {
+            const enrollment = approvedEnrollments.find(en => en._id === enrollmentId);
+            if (enrollment && enrollment.upcomingHackathonId) {
+                const hackathon = enrollment.upcomingHackathonId;
+                setFormData({
+                    ...formData,
+                    hackathonTitle: hackathon.title,
+                    organization: hackathon.organization,
+                    mode: hackathon.mode,
+                    date: hackathon.hackathonDate ? new Date(hackathon.hackathonDate).toISOString().split('T')[0] : '',
+                    // Keep existing description or clear it? Let's keep it empty for student to fill role
+                    description: formData.description
+                });
+            }
+        } else {
+            // Reset if deselected? Maybe not needed
+        }
+    };
+
     const handleChange = (e) => {
         setError('');
         setSuccess('');
@@ -73,6 +140,14 @@ const StudentDashboard = () => {
             setFormData({ ...formData, [e.target.name]: e.target.files[0] });
         } else {
             setFormData({ ...formData, [e.target.name]: e.target.value });
+
+            // Fetch suggestions when typing hackathon title
+            if (e.target.name === 'hackathonTitle' && e.target.value.length > 2) {
+                fetchHackathonSuggestions(e.target.value);
+            } else if (e.target.name === 'hackathonTitle') {
+                setSuggestions([]);
+                setShowSuggestions(false);
+            }
         }
     };
 
@@ -89,6 +164,13 @@ const StudentDashboard = () => {
             }
         });
 
+        if (selectedEnrollmentId) {
+            const enrollment = approvedEnrollments.find(en => en._id === selectedEnrollmentId);
+            if (enrollment) {
+                data.append('upcomingHackathonId', enrollment.upcomingHackathonId._id);
+            }
+        }
+
         try {
             await API.post('/hackathons/submit', data);
             setSuccess('Hackathon submitted successfully! You will receive a confirmation email.');
@@ -103,6 +185,11 @@ const StudentDashboard = () => {
                 year: new Date().getFullYear(),
                 certificate: null
             });
+            setSelectedEnrollmentId('');
+
+            // Clear suggestions
+            setSuggestions([]);
+            setShowSuggestions(false);
 
             // Reset file input
             if (certificateRef.current) certificateRef.current.value = '';
@@ -146,7 +233,7 @@ const StudentDashboard = () => {
                     </div>
                     <div className="info-pill">
                         <span className="label">Hackathons:</span>
-                        <span className="value" style={{ color: credits >= 3 ? '#4caf50' : '#e65100' }}>{credits} / 3</span>
+                        <span className="value" style={{ color: '#830000' }}>{hackathons.length}</span>
                     </div>
                 </div>
             </div>
@@ -197,9 +284,73 @@ const StudentDashboard = () => {
                         <div className="form-card" style={{ background: '#f9f9f9', border: '1px solid #ddd', boxShadow: 'none' }}>
                             <h3 style={{ marginTop: 0, color: '#333' }}>New Hackathon Submission</h3>
                             <form onSubmit={handleSubmit}>
-                                <div className="form-group">
+                                {approvedEnrollments.length > 0 && (
+                                    <div className="form-group">
+                                        <label>Select Approved Hackathon (Optional)</label>
+                                        <select
+                                            value={selectedEnrollmentId}
+                                            onChange={handleEnrollmentSelect}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                        >
+                                            <option value="">-- Select from Approved --</option>
+                                            {approvedEnrollments.map(enrollment => (
+                                                <option key={enrollment._id} value={enrollment._id}>
+                                                    {enrollment.upcomingHackathonId.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <small style={{ color: '#666' }}>Selecting an approved hackathon will auto-fill details.</small>
+                                    </div>
+                                )}
+                                <div className="form-group" style={{ position: 'relative' }}>
                                     <label>Hackathon Title *</label>
-                                    <input type="text" name="hackathonTitle" value={formData.hackathonTitle} onChange={handleChange} required placeholder="e.g., Smart India Hackathon, CodeFest" />
+                                    <input
+                                        type="text"
+                                        name="hackathonTitle"
+                                        value={formData.hackathonTitle}
+                                        onChange={handleChange}
+                                        required
+                                        placeholder="e.g., Smart India Hackathon, CodeFest"
+                                        autoComplete="off"
+                                    />
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            background: 'white',
+                                            border: '1px solid #ddd',
+                                            borderTop: 'none',
+                                            borderRadius: '0 0 4px 4px',
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            zIndex: 10,
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }}>
+                                            {suggestions.map((suggestion, index) => (
+                                                <div
+                                                    key={index}
+                                                    onClick={() => handleSuggestionClick(suggestion)}
+                                                    style={{
+                                                        padding: '10px 15px',
+                                                        cursor: 'pointer',
+                                                        borderBottom: '1px solid #f0f0f0',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center'
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
+                                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                                >
+                                                    <span>{suggestion.name}</span>
+                                                    <span style={{ fontSize: '0.8rem', color: '#666' }}>
+                                                        {suggestion.count} {suggestion.count === 1 ? 'submission' : 'submissions'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="form-group">
                                     <label>Organization *</label>

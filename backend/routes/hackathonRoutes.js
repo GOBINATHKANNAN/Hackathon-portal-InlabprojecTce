@@ -8,7 +8,8 @@ const {
     getHackathonsByYear,
     getHackathonParticipants,
     getStudentHackathons,
-    getHackathonStats
+    getHackathonStats,
+    getHackathonNames
 } = require('../controllers/hackathonController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -19,6 +20,7 @@ router.post('/submit', protect, authorize('student'), upload.fields([
     { name: 'certificate', maxCount: 1 }
 ]), submitHackathon);
 router.get('/my-hackathons', protect, authorize('student'), getMyHackathons);
+router.get('/names', protect, authorize('student'), getHackathonNames);
 
 // Proctor/Staff routes
 router.get('/assigned', protect, authorize('proctor'), getAssignedHackathons);

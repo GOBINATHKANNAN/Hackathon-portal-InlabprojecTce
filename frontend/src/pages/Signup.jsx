@@ -14,6 +14,7 @@ const Signup = () => {
         department: '',
         year: '1st'
     });
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
     const [error, setError] = useState('');
 
@@ -61,7 +62,34 @@ const Signup = () => {
                     </div>
                     <div className="form-group">
                         <label>Password</label>
-                        <input type="password" name="password" onChange={handleChange} required />
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                onChange={handleChange}
+                                required
+                                style={{ paddingRight: '40px' }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{
+                                    position: 'absolute',
+                                    right: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '1.2rem',
+                                    padding: '0',
+                                    color: '#666'
+                                }}
+                                title={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? '👁️' : '👁️‍🗨️'}
+                            </button>
+                        </div>
                     </div>
                     <div className="form-group">
                         <label>Register Number</label>

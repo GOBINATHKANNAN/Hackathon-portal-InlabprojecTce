@@ -11,20 +11,27 @@ const Home = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
     const [hackathons, setHackathons] = useState([]);
+    const [upcomingHackathons, setUpcomingHackathons] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [upcomingLoading, setUpcomingLoading] = useState(true);
 
     useEffect(() => {
-        const fetchHackathons = async () => {
+        const fetchData = async () => {
             try {
-                const res = await API.get('/hackathons/accepted');
-                setHackathons(res.data);
+                const [hackathonsRes, upcomingRes] = await Promise.all([
+                    API.get('/hackathons/accepted'),
+                    API.get('/upcoming-hackathons')
+                ]);
+                setHackathons(hackathonsRes.data);
+                setUpcomingHackathons(upcomingRes.data);
             } catch (error) {
-                console.error('Error fetching hackathons:', error);
+                console.error('Error fetching data:', error);
             } finally {
                 setLoading(false);
+                setUpcomingLoading(false);
             }
         };
-        fetchHackathons();
+        fetchData();
     }, []);
 
     // Group hackathons by student
@@ -63,6 +70,113 @@ const Home = () => {
                     Track your progress and view approved hackathons from your peers.
                 </p>
             </motion.header>
+
+            {/* Upcoming Hackathons Section */}
+            <motion.section
+                className="upcoming-section"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.8 }}
+                style={{
+                    background: 'white',
+                    padding: '40px 20px',
+                    borderRadius: '12px',
+                    margin: '40px 0',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                }}
+            >
+                <h2 style={{ color: '#830000', marginBottom: '30px', textAlign: 'center' }}>🚀 Upcoming Hackathons</h2>
+                {upcomingLoading ? (
+                    <p style={{ textAlign: 'center' }}>Loading upcoming hackathons...</p>
+                ) : upcomingHackathons.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#666' }}>No upcoming hackathons at the moment.</p>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px', maxWidth: '1200px', margin: '0 auto' }}>
+                        {upcomingHackathons.map((hackathon) => (
+                            <motion.div
+                                key={hackathon._id}
+                                className="upcoming-hackathon-card"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                style={{
+                                    background: 'white',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)',
+                                    border: '1px solid #e0e0e0'
+                                }}
+                            >
+                                {/* Poster Image */}
+                                <div style={{ height: '200px', overflow: 'hidden', background: '#f5f5f5' }}>
+                                    <img
+                                        src={`http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`}
+                                        alt={hackathon.title}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover'
+                                        }}
+                                        onError={(e) => {
+                                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzUwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIFBvc3RlciBBdmFpbGFibGU8L3RleHQ+PC9zdmc+';
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Content */}
+                                <div style={{ padding: '25px' }}>
+                                    <h3 style={{ color: '#830000', margin: '0 0 15px 0', fontSize: '1.4rem', fontWeight: '700' }}>
+                                        {hackathon.title}
+                                    </h3>
+
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Organization:</strong> {hackathon.organization}
+                                        </p>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Mode:</strong> {hackathon.mode}
+                                        </p>
+                                        <p style={{ margin: '5px 0', color: '#666' }}>
+                                            <strong>Date:</strong> {new Date(hackathon.hackathonDate).toLocaleDateString()}
+                                        </p>
+                                        <p style={{ margin: '5px 0', color: '#d32f2f', fontWeight: '600' }}>
+                                            <strong>Registration Deadline:</strong> {new Date(hackathon.registrationDeadline).toLocaleDateString()}
+                                        </p>
+                                    </div>
+
+                                    <p style={{ color: '#555', lineHeight: '1.6', marginBottom: '20px' }}>
+                                        {hackathon.description.length > 150
+                                            ? hackathon.description.substring(0, 150) + '...'
+                                            : hackathon.description}
+                                    </p>
+
+                                    {user && user.role === 'student' && (
+                                        <button
+                                            onClick={() => navigate(`/enroll/${hackathon._id}`)}
+                                            style={{
+                                                background: '#830000',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '12px 24px',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '1rem',
+                                                fontWeight: '600',
+                                                width: '100%',
+                                                transition: 'background 0.3s'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#a52a2a'}
+                                            onMouseLeave={(e) => e.target.style.background = '#830000'}
+                                        >
+                                            🚀 Enroll Now
+                                        </button>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
+            </motion.section>
 
             <motion.section
                 className="approved-section"

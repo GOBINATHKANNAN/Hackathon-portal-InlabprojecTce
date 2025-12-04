@@ -8,6 +8,7 @@ import Signup from './pages/Signup';
 import StudentDashboard from './pages/StudentDashboard';
 import ProctorDashboard from './pages/ProctorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import EnrollHackathon from './pages/EnrollHackathon';
 import './index.css';
 
 const PrivateRoute = ({ children, role }) => {
@@ -33,6 +34,12 @@ function App() {
               <Route path="/student/dashboard" element={
                 <PrivateRoute role="student">
                   <StudentDashboard />
+                </PrivateRoute>
+              } />
+
+              <Route path="/enroll/:hackathonId" element={
+                <PrivateRoute role="student">
+                  <EnrollHackathon />
                 </PrivateRoute>
               } />
 
