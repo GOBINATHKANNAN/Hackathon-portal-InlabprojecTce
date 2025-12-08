@@ -32,6 +32,7 @@ app.use('/api/upcoming-hackathons', require('./routes/upcomingHackathonRoutes'))
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/student', require('./routes/studentRoutes'));
 app.use('/api/users', require('./routes/userManagementRoutes'));
+app.use('/api/opportunities', require('./routes/opportunityRoutes'));
 
 app.get('/', (req, res) => {
     res.send('Hackathon Portal API is running');

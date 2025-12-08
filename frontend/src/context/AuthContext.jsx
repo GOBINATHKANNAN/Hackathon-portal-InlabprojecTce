@@ -4,16 +4,29 @@ import { useNavigate } from 'react-router-dom';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        try {
+            const storedUser = localStorage.getItem('user');
+            return storedUser ? JSON.parse(storedUser) : null;
+        } catch (e) {
+            return null;
+        }
+    });
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // No need to load if we read from storage sync
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (token && storedUser) {
-            setUser(JSON.parse(storedUser));
+        // Optional: validate token validity with backend here if needed
+        if (!token || !user) {
+            // If inconsistent state (token but no user, or vice versa), clear both
+            if (token || user) {
+                // Keep them to avoid aggressive logout, or strictly enforce:
+                // localStorage.removeItem('token');
+                // localStorage.removeItem('user');
+                // setUser(null);
+                // setToken(null);
+            }
         }
-        setLoading(false);
     }, [token]);
 
     const login = (userData, authToken) => {

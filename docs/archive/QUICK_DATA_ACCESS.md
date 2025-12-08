@@ -2,14 +2,14 @@
 
 ## Where is Everything?
 
-### 📊 **Database Data** (MongoDB)
+###     **Database Data** (MongoDB)
 ```
 Students, Proctors, Admins, Hackathons, Participation Requests
 ```
 **Access via:**
-- ✅ **MongoDB Compass** (Download: https://www.mongodb.com/products/compass)
-- ✅ **Admin Dashboard** (http://localhost:5173 → Login as Admin)
-- ✅ **MongoDB Shell** (`mongosh "your_mongo_uri"`)
+-   **MongoDB Compass** (Download: https://www.mongodb.com/products/compass)
+-   **Admin Dashboard** (http://localhost:5173 → Login as Admin)
+-   **MongoDB Shell** (`mongosh "your_mongo_uri"`)
 
 ### 📁 **Uploaded Files**
 ```
@@ -18,8 +18,8 @@ backend/uploads/
 └── [certificates]      ← Student certificates
 ```
 **Access via:**
-- ✅ File Explorer: Navigate to `backend/uploads/`
-- ✅ Browser: `http://localhost:5000/uploads/filename.pdf`
+-   File Explorer: Navigate to `backend/uploads/`
+-   Browser: `http://localhost:5000/uploads/filename.pdf`
 
 ---
 
@@ -40,10 +40,10 @@ backend/uploads/
    - **Export to CSV:** Download all data
 
 **What you can see:**
-- ✅ All students (name, email, register no, department, year)
-- ✅ All hackathons (title, student, status, date)
-- ✅ Participation requests
-- ✅ Statistics and charts
+-   All students (name, email, register no, department, year)
+-   All hackathons (title, student, status, date)
+-   Participation requests
+-   Statistics and charts
 
 ---
 
@@ -67,7 +67,7 @@ backend/uploads/
 
 ---
 
-## 📋 What Data is Stored?
+##   What Data is Stored?
 
 ### Students Collection
 ```json
@@ -182,18 +182,18 @@ mongoexport --uri="your_mongo_uri" --collection=students --out=students.json
 
 ### Passwords
 - ❌ **Cannot see plain text passwords**
-- ✅ Encrypted with bcrypt
-- ✅ Use "Forgot Password" to reset
+-   Encrypted with bcrypt
+-   Use "Forgot Password" to reset
 
 ### Files
-- ✅ Certificates: `backend/uploads/`
-- ✅ Posters: `backend/uploads/admin/`
-- ✅ Access via browser when server running
+-   Certificates: `backend/uploads/`
+-   Posters: `backend/uploads/admin/`
+-   Access via browser when server running
 
 ### Database
-- ✅ Connection string in `backend/.env`
-- ✅ All data in MongoDB
-- ✅ Use Compass for easy viewing
+-   Connection string in `backend/.env`
+-   All data in MongoDB
+-   Use Compass for easy viewing
 
 ---
 

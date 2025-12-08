@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import API from '../services/api';
@@ -22,21 +23,7 @@ const Login = () => {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Google Sign-In with simpler approach
-    useEffect(() => {
-        // Load Google Identity Services library
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        document.body.appendChild(script);
-
-        return () => {
-            if (document.body.contains(script)) {
-                document.body.removeChild(script);
-            }
-        };
-    }, []);
+    // Script loading useEffect removed purely in favor of GoogleOAuthProvider wrapper
 
     // Handle Google Sign-In response
     const handleGoogleResponse = async (response) => {
@@ -60,42 +47,7 @@ const Login = () => {
     };
 
     // Initialize Google button when component mounts
-    useEffect(() => {
-        const initializeGoogleButton = () => {
-            if (window.google) {
-                try {
-                    window.google.accounts.id.initialize({
-                        client_id: '495523531422-hqolcs7uvu6dq5ca6c21ppe2v72afh97.apps.googleusercontent.com',
-                        callback: handleGoogleResponse,
-                    });
-
-                    // Render the button
-                    window.google.accounts.id.renderButton(
-                        document.getElementById('googleSignInDiv'),
-                        {
-                            theme: 'outline',
-                            size: 'large',
-                            width: '100%',
-                            text: 'signin_with',
-                        }
-                    );
-                } catch (error) {
-                    console.log('Google Sign-In initialization skipped:', error.message);
-                }
-            }
-        };
-
-        // Wait for script to load
-        const checkGoogle = setInterval(() => {
-            if (window.google) {
-                initializeGoogleButton();
-                clearInterval(checkGoogle);
-            }
-        }, 100);
-
-        // Cleanup
-        return () => clearInterval(checkGoogle);
-    }, [role]);
+    // Google button initialization useEffect removed
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -248,7 +200,18 @@ const Login = () => {
                             </div>
 
                             {/* Google Sign-In Button (rendered by Google) */}
-                            <div id="googleSignInDiv" style={{ display: 'flex', justifyContent: 'center' }}></div>
+                            {/* Google Sign-In Button (rendered by specific component) */}
+                            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                                <GoogleLogin
+                                    onSuccess={handleGoogleResponse}
+                                    onError={() => {
+                                        console.log('Login Failed');
+                                        setError('Google Sign-In was unsuccessful. Please try again.');
+                                    }}
+                                    useOneTap
+                                    width="100%"
+                                />
+                            </div>
 
                             <p style={{ fontSize: '0.75rem', color: '#999', marginTop: '10px' }}>
                                 Note: If Google button doesn't appear, use email/password login above

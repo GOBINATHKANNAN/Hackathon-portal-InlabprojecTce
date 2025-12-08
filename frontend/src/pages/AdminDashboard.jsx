@@ -3,15 +3,24 @@ import API from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import UserManagement from '../components/UserManagement';
+import OpportunityManager from '../components/OpportunityManager';
 import './Dashboard.css';
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
-    const [hackathons, setHackathons] = useState([]);
+    const [hackathons, setHackathons] = useState([]); // Accepted hackathons
+    const [allHackathons, setAllHackathons] = useState([]); // All hackathons for management
     const [upcomingHackathons, setUpcomingHackathons] = useState([]);
-    const [lowCreditStudents, setLowCreditStudents] = useState([]);
+    const [lowParticipationStudents, setLowParticipationStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [alerting, setAlerting] = useState(false);
+
+    // Interactive Card States
+    const [expandedCard, setExpandedCard] = useState(null);
+    const [hackathonFilter, setHackathonFilter] = useState('All');
+    const [eventTypeFilter, setEventTypeFilter] = useState('All');
+    const [attendanceFilter, setAttendanceFilter] = useState('All');
+    const [achievementFilter, setAchievementFilter] = useState('All');
 
     // Upcoming hackathon form states
     const [showUpcomingForm, setShowUpcomingForm] = useState(false);
@@ -37,19 +46,23 @@ const AdminDashboard = () => {
     const [editingUser, setEditingUser] = useState(null);
     const [editForm, setEditForm] = useState({});
 
+    const navigate = useNavigate();
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [statsRes, hackathonsRes, lowCreditsRes, upcomingRes] = await Promise.all([
+                const [statsRes, hackathonsRes, lowParticipationRes, upcomingRes, allHackathonsRes] = await Promise.all([
                     API.get('/admin/stats'),
                     API.get('/hackathons/accepted'),
-                    API.get('/admin/low-credits'),
-                    API.get('/upcoming-hackathons')
+                    API.get('/admin/low-participation'),
+                    API.get('/upcoming-hackathons'),
+                    API.get('/hackathons/all')
                 ]);
                 setStats(statsRes.data);
                 setHackathons(hackathonsRes.data);
-                setLowCreditStudents(lowCreditsRes.data);
+                setLowParticipationStudents(lowParticipationRes.data);
                 setUpcomingHackathons(upcomingRes.data);
+                setAllHackathons(allHackathonsRes.data);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -103,27 +116,99 @@ const AdminDashboard = () => {
 
     const handleDeleteUser = async (user, type) => {
         if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
-
         try {
             await API.delete(`/users/${type}s/${user._id}`);
             fetchUsers();
-            alert(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully!`);
+            alert('User deleted successfully!');
         } catch (error) {
             alert('Failed to delete user: ' + (error.response?.data?.message || error.message));
         }
     };
 
     const handleSendAlerts = async () => {
-        if (!window.confirm('Are you sure you want to send email alerts to all students with less than required hackathon participations?')) return;
-
         setAlerting(true);
         try {
-            await API.post('/admin/send-credit-alerts');
-            alert('Email alerts sent successfully!');
+            await API.post('/admin/send-participation-alerts');
+            alert('Alert emails sent successfully to students with low participation!');
         } catch (error) {
             alert('Failed to send alerts: ' + (error.response?.data?.message || error.message));
         } finally {
             setAlerting(false);
+        }
+    };
+
+    // Export Functionality
+    const exportToCSV = (data, filename, type) => {
+        if (!data || data.length === 0) {
+            alert('No data to export');
+            return;
+        }
+
+        const csvRows = [];
+        let headers = [];
+        let processRow = null;
+
+        if (type === 'hackathons') {
+            headers = ['Title', 'Type', 'Student Name', 'Register No', 'Department', 'Year', 'Organization', 'Date', 'Attendance', 'Achievement', 'Status', 'Proctor'];
+            processRow = (h) => [
+                h.hackathonTitle,
+                h.eventType || 'Hackathon',
+                h.studentId?.name || '',
+                h.studentId?.registerNo || '',
+                h.studentId?.department || '',
+                h.studentId?.year || '',
+                h.organization,
+                new Date(h.date).toLocaleDateString(),
+                h.attendanceStatus || '',
+                h.achievementLevel || '',
+                h.status,
+                h.proctorId?.name || 'Unassigned'
+            ];
+        } else if (type === 'upcoming') {
+            headers = ['Title', 'Organization', 'Date', 'Registration Deadline', 'Mode', 'Location', 'Max Participants'];
+            processRow = (h) => [
+                h.title,
+                h.organization,
+                new Date(h.hackathonDate).toLocaleDateString(),
+                new Date(h.registrationDeadline).toLocaleDateString(),
+                h.mode,
+                h.location || 'N/A',
+                h.maxParticipants
+            ];
+        } else if (type === 'students') {
+            headers = ['Name', 'Email', 'Register No', 'Department', 'Year', 'Hackathons Attended', 'Proctor'];
+            processRow = (s) => [
+                s.name,
+                s.email,
+                s.registerNo,
+                s.department,
+                s.year,
+                s.credits, // Still using credits field from DB
+                proctors.find(p => p._id === s.proctorId)?.name || 'Unassigned'
+            ];
+        }
+
+        csvRows.push(headers.join(','));
+
+        data.forEach(row => {
+            const values = processRow(row).map(val => {
+                const escaped = ('' + val).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     };
 
@@ -140,24 +225,20 @@ const AdminDashboard = () => {
         e.preventDefault();
         setSubmittingUpcoming(true);
 
+        const formData = new FormData();
+        Object.keys(upcomingForm).forEach(key => {
+            formData.append(key, upcomingForm[key]);
+        });
+        if (posterFile) {
+            formData.append('poster', posterFile);
+        }
+
         try {
-            console.log('Submitting upcoming hackathon...');
-            console.log('Form data:', upcomingForm);
-            console.log('Poster file:', posterFile);
-
-            const formData = new FormData();
-            Object.keys(upcomingForm).forEach(key => {
-                formData.append(key, upcomingForm[key]);
+            await API.post('/upcoming-hackathons', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
-            if (posterFile) {
-                formData.append('poster', posterFile);
-            }
-
-            console.log('FormData prepared, sending to API...');
-            const response = await API.post('/upcoming-hackathons', formData);
-            console.log('API response:', response);
-
-            // Reset form
+            alert('Upcoming Hackathon Created Successfully!');
+            setShowUpcomingForm(false);
             setUpcomingForm({
                 title: '',
                 organization: '',
@@ -169,22 +250,11 @@ const AdminDashboard = () => {
                 maxParticipants: 100
             });
             setPosterFile(null);
-            setShowUpcomingForm(false);
-
-            // Refresh upcoming hackathons list
-            const upcomingRes = await API.get('/upcoming-hackathons');
-            setUpcomingHackathons(upcomingRes.data);
-
-            alert('Upcoming hackathon created successfully!');
+            // Refresh list
+            const res = await API.get('/upcoming-hackathons');
+            setUpcomingHackathons(res.data);
         } catch (error) {
-            console.error('Error creating upcoming hackathon:', error);
-            console.error('Error response:', error.response);
-            console.error('Error response data:', error.response?.data);
-            console.error('Error response status:', error.response?.status);
-            console.error('Error response text:', error.response?.statusText);
-
-            const errorMessage = error.response?.data?.message || error.response?.data?.details || error.message;
-            alert('Failed to create upcoming hackathon: ' + errorMessage);
+            alert('Failed to create upcoming hackathon: ' + (error.response?.data?.message || error.message));
         } finally {
             setSubmittingUpcoming(false);
         }
@@ -192,14 +262,26 @@ const AdminDashboard = () => {
 
     const handleDeleteUpcomingHackathon = async (hackathonId) => {
         if (!window.confirm('Are you sure you want to delete this upcoming hackathon?')) return;
-
         try {
             await API.delete(`/upcoming-hackathons/${hackathonId}`);
-            setUpcomingHackathons(upcomingHackathons.filter(h => h._id !== hackathonId));
-            alert('Upcoming hackathon deleted successfully!');
+            const res = await API.get('/upcoming-hackathons');
+            setUpcomingHackathons(res.data);
+            alert('Deleted successfully');
         } catch (error) {
             alert('Failed to delete upcoming hackathon: ' + (error.response?.data?.message || error.message));
         }
+    };
+
+    // Card Interaction Functions
+    const toggleExpand = (card) => {
+        setExpandedCard(expandedCard === card ? null : card);
+    };
+
+    const handleCardClick = (type) => {
+        setActiveTab('hackathons');
+        if (type === 'pending') setHackathonFilter('Pending');
+        else if (type === 'accepted') setHackathonFilter('Accepted');
+        else setHackathonFilter('All');
     };
 
     if (loading) return <div className="dashboard-container"><p>Loading admin data...</p></div>;
@@ -214,7 +296,7 @@ const AdminDashboard = () => {
     const studentData = [
         { name: 'Total Students', value: Number(stats.totalStudents) || 0 },
         { name: 'With Hackathons', value: Number(stats.studentsWithHackathons) || 0 },
-        { name: 'Students with Less Participation', value: Number(lowCreditStudents?.length) || 0 }
+        { name: 'Students with Less Participation', value: Number(lowParticipationStudents?.length) || 0 }
     ];
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
@@ -222,184 +304,308 @@ const AdminDashboard = () => {
     // Only render charts if we have valid data
     const hasValidChartData = pieData.some(item => item.value > 0) || studentData.some(item => item.value > 0);
 
+    const getFilteredHackathons = () => {
+        let filtered = allHackathons;
+
+        // Filter by status
+        if (hackathonFilter !== 'All') {
+            filtered = filtered.filter(h => h.status === hackathonFilter);
+        }
+
+        // Filter by event type
+        if (eventTypeFilter !== 'All') {
+            filtered = filtered.filter(h => h.eventType === eventTypeFilter);
+        }
+
+        // Filter by attendance
+        if (attendanceFilter !== 'All') {
+            filtered = filtered.filter(h => h.attendanceStatus === attendanceFilter);
+        }
+
+        // Filter by achievement
+        if (achievementFilter !== 'All') {
+            filtered = filtered.filter(h => h.achievementLevel === achievementFilter);
+        }
+
+        return filtered;
+    };
+
     return (
         <div className="dashboard-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eee', paddingBottom: '10px', marginBottom: '20px' }}>
                 <h2 style={{ color: '#830000', margin: 0 }}>Admin Dashboard</h2>
                 <Link to="/" style={{ textDecoration: 'none', color: '#830000', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    🏠 Home
+                    Home
                 </Link>
             </div>
 
             {/* Navigation Tabs */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    style={{
-                        padding: '10px 20px',
-                        background: activeTab === 'overview' ? '#830000' : '#f5f5f5',
-                        color: activeTab === 'overview' ? 'white' : '#333',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.95rem'
-                    }}
-                >
-                    📊 Overview
-                </button>
-                <button
-                    onClick={() => setActiveTab('upcoming')}
-                    style={{
-                        padding: '10px 20px',
-                        background: activeTab === 'upcoming' ? '#830000' : '#f5f5f5',
-                        color: activeTab === 'upcoming' ? 'white' : '#333',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.95rem'
-                    }}
-                >
-                    🚀 Upcoming Hackathons
-                </button>
-                <button
-                    onClick={() => setActiveTab('users')}
-                    style={{
-                        padding: '10px 20px',
-                        background: activeTab === 'users' ? '#830000' : '#f5f5f5',
-                        color: activeTab === 'users' ? 'white' : '#333',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.95rem'
-                    }}
-                >
-                    👥 User Management
-                </button>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #eee', paddingBottom: '10px', overflowX: 'auto' }}>
+                {[
+                    { id: 'overview', label: '    Overview' },
+                    { id: 'opportunities', label: '✨ Smart Opportunities' },
+                    { id: 'hackathons', label: 'Hackathons' },
+                    { id: 'upcoming', label: 'Upcoming Hackathons' },
+                    { id: 'users', label: '  User Management' }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        style={{
+                            padding: '10px 20px',
+                            background: activeTab === tab.id ? '#830000' : '#f5f5f5',
+                            color: activeTab === tab.id ? 'white' : '#333',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.95rem',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
             </div>
 
             {activeTab === 'overview' && (
                 <>
-                    {/* Original Overview Content */}
-                    <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                        <div className="stat-card" style={{ background: '#e3f2fd', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-                            <h3 style={{ margin: '0 0 10px 0', color: '#1565c0' }}>Total Students</h3>
-                            <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.totalStudents}</p>
+                    {/* Interactive Stats Grid */}
+                    <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                        {/* Total Students Card */}
+                        <div className="stat-card" style={{ background: '#e3f2fd', padding: '20px', borderRadius: '8px', position: 'relative' }}>
+                            <div onClick={() => setActiveTab('users')} style={{ cursor: 'pointer' }}>
+                                <h3 style={{ margin: '0 0 10px 0', color: '#1565c0' }}>Total Students</h3>
+                                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.totalStudents}</p>
+                            </div>
                         </div>
-                        <div className="stat-card" style={{ background: '#fff3e0', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-                            <h3 style={{ margin: '0 0 10px 0', color: '#ef6c00' }}>Total Hackathons</h3>
-                            <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.totalHackathons}</p>
+
+                        {/* Total Hackathons Card */}
+                        <div className="stat-card" style={{ background: '#fff3e0', padding: '20px', borderRadius: '8px', position: 'relative' }}>
+                            <div onClick={() => handleCardClick('all')} style={{ cursor: 'pointer' }}>
+                                <h3 style={{ margin: '0 0 10px 0', color: '#ef6c00' }}>Total Hackathons</h3>
+                                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.totalHackathons}</p>
+                            </div>
+                            <button
+                                onClick={() => toggleExpand('total')}
+                                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                {expandedCard === 'total' ? '▲' : '▼'}
+                            </button>
+                            {expandedCard === 'total' && (
+                                <div style={{ marginTop: '15px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '10px' }}>
+                                    <p style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px' }}>Recent Submissions:</p>
+                                    {allHackathons.slice(0, 3).map(h => (
+                                        <div key={h._id} style={{ fontSize: '0.85rem', marginBottom: '5px', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{h.hackathonTitle}</span>
+                                            <span style={{
+                                                color: h.status === 'Accepted' ? 'green' : h.status === 'Declined' ? 'red' : 'orange'
+                                            }}>{h.status}</span>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => handleCardClick('all')}
+                                        style={{ width: '100%', marginTop: '10px', padding: '5px', background: 'rgba(255,255,255,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                    >
+                                        View All
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                        <div className="stat-card" style={{ background: '#fff8e1', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-                            <h3 style={{ margin: '0 0 10px 0', color: '#fbc02d' }}>Pending</h3>
-                            <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.pendingHackathons}</p>
+
+                        {/* Pending Hackathons Card */}
+                        <div className="stat-card" style={{ background: '#fff8e1', padding: '20px', borderRadius: '8px', position: 'relative' }}>
+                            <div onClick={() => handleCardClick('pending')} style={{ cursor: 'pointer' }}>
+                                <h3 style={{ margin: '0 0 10px 0', color: '#fbc02d' }}>Pending</h3>
+                                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.pendingHackathons}</p>
+                            </div>
+                            <button
+                                onClick={() => toggleExpand('pending')}
+                                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                {expandedCard === 'pending' ? '▲' : '▼'}
+                            </button>
+                            {expandedCard === 'pending' && (
+                                <div style={{ marginTop: '15px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '10px' }}>
+                                    <p style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px' }}>Pending Approval:</p>
+                                    {allHackathons.filter(h => h.status === 'Pending').slice(0, 3).map(h => (
+                                        <div key={h._id} style={{ fontSize: '0.85rem', marginBottom: '5px' }}>
+                                            <div style={{ fontWeight: 'bold' }}>{h.hackathonTitle}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#666' }}>{h.studentId?.name}</div>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => handleCardClick('pending')}
+                                        style={{ width: '100%', marginTop: '10px', padding: '5px', background: 'rgba(255,255,255,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                    >
+                                        View All Pending
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                        <div className="stat-card" style={{ background: '#e8f5e9', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-                            <h3 style={{ margin: '0 0 10px 0', color: '#2e7d32' }}>Accepted</h3>
-                            <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.acceptedHackathons}</p>
+
+                        {/* Accepted Hackathons Card */}
+                        <div className="stat-card" style={{ background: '#e8f5e9', padding: '20px', borderRadius: '8px', position: 'relative' }}>
+                            <div onClick={() => handleCardClick('accepted')} style={{ cursor: 'pointer' }}>
+                                <h3 style={{ margin: '0 0 10px 0', color: '#2e7d32' }}>Accepted</h3>
+                                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.acceptedHackathons}</p>
+                            </div>
+                        </div>
+
+                        {/* Attendance Rate Card */}
+                        <div className="stat-card" style={{ background: '#e3f2fd', padding: '20px', borderRadius: '8px', position: 'relative' }}>
+                            <h3 style={{ margin: '0 0 10px 0', color: '#1565c0' }}>    Attendance Rate</h3>
+                            <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{stats.attendanceRate || 0}%</p>
+                            <button
+                                onClick={() => toggleExpand('attendance')}
+                                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                {expandedCard === 'attendance' ? '▲' : '▼'}
+                            </button>
+                            {expandedCard === 'attendance' && (
+                                <div style={{ marginTop: '15px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '10px', fontSize: '0.85rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                        <span>  Attended:</span>
+                                        <strong>{stats.attendedCount || 0}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                        <span>❌ Did Not Attend:</span>
+                                        <strong style={{ color: '#d32f2f' }}>{stats.didNotAttendCount || 0}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>📝 Registered Only:</span>
+                                        <strong>{stats.registeredOnlyCount || 0}</strong>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Achievement Breakdown Card */}
+                        <div className="stat-card" style={{ background: '#fff9c4', padding: '20px', borderRadius: '8px', position: 'relative' }}>
+                            <h3 style={{ margin: '0 0 10px 0', color: '#f57f17' }}>   Achievements</h3>
+                            <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{(stats.winnersCount || 0) + (stats.runnerUpsCount || 0)}</p>
+                            <button
+                                onClick={() => toggleExpand('achievements')}
+                                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                {expandedCard === 'achievements' ? '▲' : '▼'}
+                            </button>
+                            {expandedCard === 'achievements' && (
+                                <div style={{ marginTop: '15px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '10px', fontSize: '0.85rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                        <span>   Winners:</span>
+                                        <strong style={{ color: '#f57f17' }}>{stats.winnersCount || 0}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                        <span>   Runner-ups:</span>
+                                        <strong style={{ color: '#01579b' }}>{stats.runnerUpsCount || 0}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>📜 Participation:</span>
+                                        <strong>{stats.participationOnlyCount || 0}</strong>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Rest of overview content... */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-                        <button onClick={() => {
-                            const csvContent = "data:text/csv;charset=utf-8,"
-                                + "Student,RegisterNo,Hackathon,Mode,Status\n"
-                                + hackathons.map(i => `${i.studentId?.name},${i.studentId?.registerNo},${i.hackathonTitle},${i.mode},${i.status}`).join("\n");
-                            const encodedUri = encodeURI(csvContent);
-                            const link = document.createElement("a");
-                            link.setAttribute("href", encodedUri);
-                            link.setAttribute("download", "hackathons.csv");
-                            document.body.appendChild(link);
-                            link.click();
-                        }} style={{ background: '#333', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}>
-                            📥 Export to CSV
-                        </button>
+                    <div className="charts-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                        {hasValidChartData ? (
+                            <>
+                                <div className="chart-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                    <h3>Participation Mode</h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={pieData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    labelLine={false}
+                                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                                    outerRadius={80}
+                                                    fill="#8884d8"
+                                                    dataKey="value"
+                                                >
+                                                    {pieData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                                <div className="chart-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                    <h3>Student Engagement</h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={studentData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    labelLine={false}
+                                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                                    outerRadius={80}
+                                                    fill="#8884d8"
+                                                    dataKey="value"
+                                                >
+                                                    {studentData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
+                                <p>Not enough data to display charts yet.</p>
+                            </div>
+                        )}
                     </div>
 
-                    {hasValidChartData && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
-                            <div className="chart-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                                <h3 style={{ textAlign: 'center', marginBottom: '20px' }}>Hackathon Mode Distribution</h3>
-                                <div style={{ width: '100%', height: 300, minHeight: 300 }}>
-                                    <ResponsiveContainer width="100%" height="100%" aspect={1}>
-                                        <PieChart>
-                                            <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
-                                                {pieData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            <div className="chart-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                                <h3 style={{ textAlign: 'center', marginBottom: '20px' }}>Student Hackathon Status</h3>
-                                <div style={{ width: '100%', height: 300, minHeight: 300 }}>
-                                    <ResponsiveContainer width="100%" height="100%" aspect={1}>
-                                        <PieChart>
-                                            <Pie
-                                                data={studentData}
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={80}
-                                                fill="#82ca9d"
-                                                dataKey="value"
-                                                label
-                                            >
-                                                <Cell fill="#8884d8" />
-                                                <Cell fill="#82ca9d" />
-                                                <Cell fill="#ffc658" />
-                                            </Pie>
-                                            <Tooltip />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="list-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '40px' }}>
+                    <div className="low-credits-section" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ color: '#d32f2f' }}>Students with Low Participation (&lt; Required)</h3>
+                            <h3 style={{ color: '#d32f2f', margin: 0 }}>  Students with Low Participation</h3>
                             <button
                                 onClick={handleSendAlerts}
-                                disabled={alerting || lowCreditStudents.length === 0}
+                                disabled={alerting || lowParticipationStudents.length === 0}
                                 style={{
+                                    padding: '10px 20px',
                                     background: alerting ? '#ccc' : '#d32f2f',
                                     color: 'white',
                                     border: 'none',
-                                    padding: '10px 20px',
                                     borderRadius: '6px',
-                                    cursor: alerting ? 'not-allowed' : 'pointer',
+                                    cursor: alerting || lowParticipationStudents.length === 0 ? 'not-allowed' : 'pointer',
                                     fontWeight: 'bold'
                                 }}
                             >
-                                {alerting ? 'Sending...' : 'Send Email Alerts'}
+                                {alerting ? 'Sending...' : '  Send Alert Emails'}
                             </button>
                         </div>
-
-                        {lowCreditStudents.length === 0 ? (
-                            <p>All students have completed required hackathon participations.</p>
-                        ) : (
-                            <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {lowParticipationStudents.length > 0 ? (
+                            <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead style={{ position: 'sticky', top: 0, background: 'white' }}>
-                                        <tr style={{ background: '#ffebee', textAlign: 'left' }}>
-                                            <th style={{ padding: '12px' }}>Name</th>
-                                            <th style={{ padding: '12px' }}>Register No</th>
-                                            <th style={{ padding: '12px' }}>Year</th>
-                                            <th style={{ padding: '12px' }}>Hackathons Attended</th>
+                                    <thead>
+                                        <tr style={{ background: '#ffebee' }}>
+                                            <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
+                                            <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
+                                            <th style={{ padding: '12px', textAlign: 'left' }}>Department</th>
+                                            <th style={{ padding: '12px', textAlign: 'left' }}>Year</th>
+                                            <th style={{ padding: '12px', textAlign: 'left' }}>Hackathons Attended</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {lowCreditStudents.map(student => (
+                                        {lowParticipationStudents.map(student => (
                                             <tr key={student._id} style={{ borderBottom: '1px solid #eee' }}>
                                                 <td style={{ padding: '12px' }}>{student.name}</td>
-                                                <td style={{ padding: '12px' }}>{student.registerNo}</td>
+                                                <td style={{ padding: '12px' }}>{student.email}</td>
+                                                <td style={{ padding: '12px' }}>{student.department}</td>
                                                 <td style={{ padding: '12px' }}>{student.year}</td>
                                                 <td style={{ padding: '12px', fontWeight: 'bold', color: '#d32f2f' }}>{student.credits}</td>
                                             </tr>
@@ -407,210 +613,299 @@ const AdminDashboard = () => {
                                     </tbody>
                                 </table>
                             </div>
+                        ) : (
+                            <p style={{ textAlign: 'center', color: '#2e7d32', fontWeight: 'bold' }}>
+                                🎉 Great news! All students have sufficient participation.
+                            </p>
                         )}
-                    </div>
-
-                    <div className="list-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                        <h3>All Hackathons</h3>
-                        <div className="table-responsive" style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
-                                        <th style={{ padding: '12px' }}>Student</th>
-                                        <th style={{ padding: '12px' }}>Hackathon</th>
-                                        <th style={{ padding: '12px' }}>Mode</th>
-                                        <th style={{ padding: '12px' }}>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {hackathons.map(intern => (
-                                        <tr key={intern._id} style={{ borderBottom: '1px solid #eee' }}>
-                                            <td style={{ padding: '12px' }}>
-                                                <div>{intern.studentId?.name}</div>
-                                                <div style={{ fontSize: '0.85rem', color: '#666' }}>{intern.studentId?.registerNo}</div>
-                                            </td>
-                                            <td style={{ padding: '12px' }}>{intern.hackathonTitle || intern.companyName}</td>
-                                            <td style={{ padding: '12px' }}>{intern.mode}</td>
-                                            <td style={{ padding: '12px' }}>
-                                                <span className={`status-${intern.status.toLowerCase()}`} style={{
-                                                    padding: '4px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: 'bold',
-                                                    background: intern.status === 'Accepted' ? '#e8f5e9' : intern.status === 'Declined' ? '#ffebee' : '#fff3e0',
-                                                    color: intern.status === 'Accepted' ? '#2e7d32' : intern.status === 'Declined' ? '#c62828' : '#ef6c00'
-                                                }}>
-                                                    {intern.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
                     </div>
                 </>
             )}
 
+            {activeTab === 'opportunities' && <OpportunityManager />}
+
+            {activeTab === 'hackathons' && (
+                <div className="list-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3>Hackathon Management</h3>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => exportToCSV(getFilteredHackathons(), 'hackathons.csv', 'hackathons')}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: '#2e7d32',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                Export CSV
+                            </button>
+                            <select
+                                value={hackathonFilter}
+                                onChange={(e) => setHackathonFilter(e.target.value)}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            >
+                                <option value="All">All Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Accepted">Accepted</option>
+                                <option value="Declined">Declined</option>
+                            </select>
+                            <select
+                                value={eventTypeFilter}
+                                onChange={(e) => setEventTypeFilter(e.target.value)}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            >
+                                <option value="All">All Types</option>
+                                <option value="Hackathon">Hackathon</option>
+                                <option value="Codeathon">Codeathon</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
+                                    <th style={{ padding: '12px' }}>Title</th>
+                                    <th style={{ padding: '12px' }}>Type</th>
+                                    <th style={{ padding: '12px' }}>Student</th>
+                                    <th style={{ padding: '12px' }}>Date</th>
+                                    <th style={{ padding: '12px' }}>Attendance</th>
+                                    <th style={{ padding: '12px' }}>Achievement</th>
+                                    <th style={{ padding: '12px' }}>Status</th>
+                                    <th style={{ padding: '12px' }}>Proctor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {getFilteredHackathons().map(h => (
+                                    <tr key={h._id} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '12px' }}>{h.hackathonTitle}</td>
+                                        <td style={{ padding: '12px' }}>
+                                            <span style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.85rem',
+                                                background: h.eventType === 'Hackathon' ? '#f3e5f5' : '#e1f5fe',
+                                                color: h.eventType === 'Hackathon' ? '#7b1fa2' : '#01579b',
+                                                fontWeight: '500'
+                                            }}>
+                                                {h.eventType}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <div>{h.studentId?.name}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#666' }}>{h.studentId?.registerNo}</div>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>{new Date(h.date).toLocaleDateString()}</td>
+                                        <td style={{ padding: '12px' }}>
+                                            <span style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.85rem',
+                                                background: h.attendanceStatus === 'Attended' ? '#e8f5e9' :
+                                                    h.attendanceStatus === 'Registered' ? '#fff8e1' : '#ffebee',
+                                                color: h.attendanceStatus === 'Attended' ? '#2e7d32' :
+                                                    h.attendanceStatus === 'Registered' ? '#f9a825' : '#c62828'
+                                            }}>
+                                                {h.attendanceStatus}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <span style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.85rem',
+                                                background: h.achievementLevel === 'Winner' ? '#fff9c4' :
+                                                    h.achievementLevel === 'Runner-up' ? '#e1f5fe' : '#f5f5f5',
+                                                color: h.achievementLevel === 'Winner' ? '#f57f17' :
+                                                    h.achievementLevel === 'Runner-up' ? '#01579b' : '#666'
+                                            }}>
+                                                {h.achievementLevel}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <span style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.85rem',
+                                                background: h.status === 'Accepted' ? '#e8f5e9' : h.status === 'Declined' ? '#ffebee' : '#fff8e1',
+                                                color: h.status === 'Accepted' ? '#2e7d32' : h.status === 'Declined' ? '#c62828' : '#f9a825'
+                                            }}>
+                                                {h.status}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>{h.proctorId?.name || 'Unassigned'}</td>
+                                    </tr>
+                                ))}
+                                {getFilteredHackathons().length === 0 && (
+                                    <tr>
+                                        <td colSpan="8" style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                                            No hackathons found.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'upcoming' && (
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                        <h2 style={{ color: '#830000', margin: 0 }}>🚀 Upcoming Hackathons Management</h2>
-                        <button
-                            onClick={() => setShowUpcomingForm(!showUpcomingForm)}
-                            style={{
-                                background: showUpcomingForm ? '#666' : '#830000',
-                                color: 'white',
-                                border: 'none',
-                                padding: '10px 20px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '1rem'
-                            }}
-                        >
-                            {showUpcomingForm ? '✖ Cancel' : '➕ Add New Hackathon'}
-                        </button>
+                <div className="upcoming-section">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3>Upcoming Hackathons</h3>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => exportToCSV(upcomingHackathons, 'upcoming_hackathons.csv', 'upcoming')}
+                                style={{
+                                    padding: '10px 20px',
+                                    background: '#2e7d32',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                Export CSV
+                            </button>
+                            <button
+                                onClick={() => setShowUpcomingForm(!showUpcomingForm)}
+                                style={{
+                                    padding: '10px 20px',
+                                    background: '#830000',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                {showUpcomingForm ? 'Cancel' : 'Create New'}
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Add Upcoming Hackathon Form */}
                     {showUpcomingForm && (
-                        <div className="form-card" style={{ background: '#f9f9f9', border: '1px solid #ddd', boxShadow: 'none', marginBottom: '30px' }}>
-                            <h3 style={{ marginTop: 0, color: '#333' }}>Create New Upcoming Hackathon</h3>
+                        <div className="form-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
                             <form onSubmit={handleCreateUpcomingHackathon}>
-                                <div className="form-group">
-                                    <label>Hackathon Title *</label>
-                                    <input type="text" name="title" value={upcomingForm.title} onChange={handleUpcomingFormChange} required placeholder="e.g., Smart India Hackathon 2024" />
-                                </div>
-                                <div className="form-group">
-                                    <label>Organization *</label>
-                                    <input type="text" name="organization" value={upcomingForm.organization} onChange={handleUpcomingFormChange} required placeholder="e.g., Google, Microsoft, College Name" />
-                                </div>
-                                <div className="form-group">
-                                    <label>Description *</label>
-                                    <textarea name="description" value={upcomingForm.description} onChange={handleUpcomingFormChange} required placeholder="Describe the hackathon..." rows="4" />
-                                </div>
-                                <div className="form-group">
-                                    <label>Mode *</label>
-                                    <select name="mode" value={upcomingForm.mode} onChange={handleUpcomingFormChange}>
-                                        <option value="Online">🌐 Online</option>
-                                        <option value="Offline">🏢 Offline</option>
-                                        <option value="Hybrid">🔄 Hybrid</option>
-                                    </select>
-                                </div>
-                                {(upcomingForm.mode === 'Offline' || upcomingForm.mode === 'Hybrid') && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                     <div className="form-group">
-                                        <label>Location *</label>
-                                        <input type="text" name="location" value={upcomingForm.location} onChange={handleUpcomingFormChange} required placeholder="e.g., TCE Campus, Chennai" />
-                                    </div>
-                                )}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <div className="form-group">
-                                        <label>Registration Deadline *</label>
-                                        <input type="datetime-local" name="registrationDeadline" value={upcomingForm.registrationDeadline} onChange={handleUpcomingFormChange} required />
+                                        <label>Title</label>
+                                        <input type="text" name="title" value={upcomingForm.title} onChange={handleUpcomingFormChange} required />
                                     </div>
                                     <div className="form-group">
-                                        <label>Hackathon Date *</label>
-                                        <input type="datetime-local" name="hackathonDate" value={upcomingForm.hackathonDate} onChange={handleUpcomingFormChange} required />
+                                        <label>Organization</label>
+                                        <input type="text" name="organization" value={upcomingForm.organization} onChange={handleUpcomingFormChange} required />
+                                    </div>
+                                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                        <label>Description</label>
+                                        <textarea name="description" value={upcomingForm.description} onChange={handleUpcomingFormChange} required rows="3" />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Registration Deadline</label>
+                                        <input type="date" name="registrationDeadline" value={upcomingForm.registrationDeadline} onChange={handleUpcomingFormChange} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Hackathon Date</label>
+                                        <input type="date" name="hackathonDate" value={upcomingForm.hackathonDate} onChange={handleUpcomingFormChange} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Mode</label>
+                                        <select name="mode" value={upcomingForm.mode} onChange={handleUpcomingFormChange}>
+                                            <option value="Online">Online</option>
+                                            <option value="Offline">Offline</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Location (if Offline)</label>
+                                        <input type="text" name="location" value={upcomingForm.location} onChange={handleUpcomingFormChange} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Max Participants</label>
+                                        <input type="number" name="maxParticipants" value={upcomingForm.maxParticipants} onChange={handleUpcomingFormChange} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Poster Image</label>
+                                        <input type="file" accept="image/*" onChange={handlePosterChange} />
                                     </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Max Participants</label>
-                                    <input type="number" name="maxParticipants" value={upcomingForm.maxParticipants} onChange={handleUpcomingFormChange} min="1" placeholder="Maximum number of participants" />
-                                </div>
-                                <div className="form-group">
-                                    <label>Poster Image *</label>
-                                    <input type="file" name="poster" onChange={handlePosterChange} required accept="image/*" />
-                                    <small style={{ color: '#666' }}>Upload a poster image (JPG, PNG, etc.)</small>
-                                </div>
-                                <button type="submit" className="submit-btn" disabled={submittingUpcoming} style={{
-                                    background: submittingUpcoming ? '#ccc' : '#830000',
-                                    width: '100%',
-                                    marginTop: '20px'
-                                }}>
-                                    {submittingUpcoming ? '⏳ Creating...' : '🚀 Create Upcoming Hackathon'}
+                                <button type="submit" className="submit-btn" disabled={submittingUpcoming} style={{ marginTop: '20px' }}>
+                                    {submittingUpcoming ? 'Creating...' : 'Create Hackathon'}
                                 </button>
                             </form>
                         </div>
                     )}
 
-                    {/* Upcoming Hackathons List */}
-                    <div className="submissions-list">
-                        {upcomingHackathons.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '8px', color: '#666' }}>
-                                <p style={{ fontSize: '2rem', margin: 0 }}>📭</p>
-                                <p>No upcoming hackathons have been created yet.</p>
+                    <div className="upcoming-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                        {upcomingHackathons.map(hackathon => (
+                            <div key={hackathon._id} className="hackathon-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                {hackathon.posterPath && (
+                                    <img
+                                        src={`http://localhost:5000/${hackathon.posterPath}`}
+                                        alt={hackathon.title}
+                                        style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px', marginBottom: '15px' }}
+                                    />
+                                )}
+                                <h3>{hackathon.title}</h3>
+                                <p><strong>Org:</strong> {hackathon.organization}</p>
+                                <p><strong>Date:</strong> {new Date(hackathon.hackathonDate).toLocaleDateString()}</p>
+                                <p><strong>Mode:</strong> {hackathon.mode}</p>
+                                <button
+                                    onClick={() => handleDeleteUpcomingHackathon(hackathon._id)}
+                                    style={{
+                                        background: '#f44336',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '8px 16px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        marginTop: '10px',
+                                        width: '100%'
+                                    }}
+                                >
+                                    Delete
+                                </button>
                             </div>
-                        ) : (
-                            <div style={{ display: 'grid', gap: '20px' }}>
-                                {upcomingHackathons.map(hackathon => (
-                                    <div key={hackathon._id} className="hackathon-card-item" style={{
-                                        background: 'white',
-                                        padding: '20px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #eee',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        flexWrap: 'wrap',
-                                        gap: '15px'
-                                    }}>
-                                        <div style={{ flex: 1 }}>
-                                            <h3 style={{ margin: '0 0 10px 0', color: '#830000' }}>{hackathon.title}</h3>
-                                            <p style={{ margin: '5px 0', color: '#666', fontSize: '0.9rem' }}>
-                                                <strong>Organization:</strong> {hackathon.organization}
-                                            </p>
-                                            <p style={{ margin: '5px 0', color: '#666', fontSize: '0.9rem' }}>
-                                                <strong>Mode:</strong> {hackathon.mode} {hackathon.location && `• ${hackathon.location}`}
-                                            </p>
-                                            <p style={{ margin: '5px 0', color: '#666', fontSize: '0.9rem' }}>
-                                                <strong>Date:</strong> {new Date(hackathon.hackathonDate).toLocaleDateString()}
-                                            </p>
-                                            <p style={{ margin: '5px 0', color: '#d32f2f', fontSize: '0.9rem', fontWeight: '600' }}>
-                                                <strong>Registration Deadline:</strong> {new Date(hackathon.registrationDeadline).toLocaleDateString()}
-                                            </p>
-                                            <p style={{ margin: '5px 0', color: '#666', fontSize: '0.9rem' }}>
-                                                <strong>Max Participants:</strong> {hackathon.maxParticipants}
-                                            </p>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <button
-                                                onClick={() => handleDeleteUpcomingHackathon(hackathon._id)}
-                                                style={{
-                                                    background: '#d32f2f',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '8px 16px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.85rem'
-                                                }}
-                                            >
-                                                🗑️ Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        ))}
                     </div>
                 </div>
             )}
 
             {activeTab === 'users' && (
-                <UserManagement
-                    students={students}
-                    proctors={proctors}
-                    admins={admins}
-                    userStats={userStats}
-                    onEditUser={handleEditUser}
-                    onDeleteUser={handleDeleteUser}
-                    editingUser={editingUser}
-                    editForm={editForm}
-                    setEditForm={setEditForm}
-                    onUpdateUser={handleUpdateUser}
-                    setEditingUser={setEditingUser}
-                />
+                <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                        <button
+                            onClick={() => exportToCSV(students, 'students.csv', 'students')}
+                            style={{
+                                padding: '8px 16px',
+                                background: '#2e7d32',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Export Students CSV
+                        </button>
+                    </div>
+                    <UserManagement
+                        students={students}
+                        proctors={proctors}
+                        admins={admins}
+                        userStats={userStats}
+                        onEditUser={handleEditUser}
+                        onDeleteUser={handleDeleteUser}
+                        editingUser={editingUser}
+                        editForm={editForm}
+                        setEditForm={setEditForm}
+                        onUpdateUser={handleUpdateUser}
+                        setEditingUser={setEditingUser}
+                    />
+                </>
             )}
         </div>
     );

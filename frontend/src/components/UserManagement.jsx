@@ -1,22 +1,39 @@
 import React, { useState } from 'react';
 
-const UserManagement = ({ 
-    students, 
-    proctors, 
-    admins, 
-    userStats, 
-    onEditUser, 
-    onDeleteUser, 
-    editingUser, 
-    editForm, 
-    setEditForm, 
-    onUpdateUser, 
-    setEditingUser 
+const UserManagement = ({
+    students,
+    proctors,
+    admins,
+    userStats,
+    onEditUser,
+    onDeleteUser,
+    editingUser,
+    editForm,
+    setEditForm,
+    onUpdateUser,
+    setEditingUser
 }) => {
     const [activeUserTab, setActiveUserTab] = useState('students');
+    const [selectedProctorFilter, setSelectedProctorFilter] = useState('');
 
     const handleFormChange = (field, value) => {
         setEditForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    const getProctorName = (proctorId) => {
+        if (!proctorId) return 'Not Assigned';
+        const proctor = proctors.find(p => p._id === proctorId);
+        return proctor ? proctor.name : 'Unknown';
+    };
+
+    const getFilteredUsers = () => {
+        if (activeUserTab === 'students') {
+            if (!selectedProctorFilter) return students;
+            return students.filter(s => s.proctorId === selectedProctorFilter);
+        }
+        if (activeUserTab === 'proctors') return proctors;
+        if (activeUserTab === 'admins') return admins;
+        return [];
     };
 
     const renderUserTable = (users, type) => {
@@ -29,7 +46,8 @@ const UserManagement = ({
                         { label: 'Register No', value: user.registerNo },
                         { label: 'Department', value: user.department },
                         { label: 'Year', value: user.year },
-                        { label: 'Credits', value: user.credits || 0 }
+                        { label: 'Proctor', value: getProctorName(user.proctorId) },
+                        { label: 'Hackathons Attended', value: user.credits || 0 }
                     ];
                 case 'proctor':
                     return [
@@ -79,7 +97,7 @@ const UserManagement = ({
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        ✏️ Edit
+                                        Edit
                                     </button>
                                     <button
                                         onClick={() => onDeleteUser(user, type)}
@@ -92,7 +110,7 @@ const UserManagement = ({
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        🗑️ Delete
+                                        Delete
                                     </button>
                                 </td>
                             </tr>
@@ -166,6 +184,21 @@ const UserManagement = ({
                                     <option value="2nd">2nd</option>
                                     <option value="3rd">3rd</option>
                                     <option value="4th">4th</option>
+                                </select>
+                            </div>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Assign Proctor:</label>
+                                <select
+                                    value={editForm.proctorId || ''}
+                                    onChange={(e) => handleFormChange('proctorId', e.target.value)}
+                                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                                >
+                                    <option value="">No Proctor Assigned</option>
+                                    {proctors.map(proctor => (
+                                        <option key={proctor._id} value={proctor._id}>
+                                            {proctor.name} ({proctor.department})
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </>
@@ -328,15 +361,32 @@ const UserManagement = ({
                 ))}
             </div>
 
+            {/* Proctor Filter for Students Tab */}
+            {activeUserTab === 'students' && (
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Filter by Proctor:</label>
+                    <select
+                        value={selectedProctorFilter}
+                        onChange={(e) => setSelectedProctorFilter(e.target.value)}
+                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    >
+                        <option value="">All Proctors</option>
+                        {proctors.map(proctor => (
+                            <option key={proctor._id} value={proctor._id}>
+                                {proctor.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
             {/* User Tables */}
             <div className="list-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                 <h3 style={{ marginBottom: '20px' }}>
                     {activeUserTab.charAt(0).toUpperCase() + activeUserTab.slice(1)} Management
                 </h3>
-                
-                {activeUserTab === 'students' && renderUserTable(students, 'student')}
-                {activeUserTab === 'proctors' && renderUserTable(proctors, 'proctor')}
-                {activeUserTab === 'admins' && renderUserTable(admins, 'admin')}
+
+                {renderUserTable(getFilteredUsers(), activeUserTab.slice(0, -1))}
             </div>
 
             {/* Edit Form Modal */}

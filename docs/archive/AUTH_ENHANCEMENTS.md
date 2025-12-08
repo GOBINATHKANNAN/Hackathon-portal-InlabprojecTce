@@ -2,12 +2,12 @@
 
 ## Features Implemented
 
-### 1. ✅ Password Visibility Toggle (Eye Icon)
+### 1.   Password Visibility Toggle (Eye Icon)
 - **Location**: Login.jsx, Signup.jsx
 - **Functionality**: Click the eye icon to show/hide password
 - **Icon**: 👁️ (visible) / 👁️‍🗨️ (hidden)
 
-### 2. ✅ Forgot Password with Email Verification
+### 2.   Forgot Password with Email Verification
 - **Flow**:
   1. User clicks "Forgot Password?" on login page
   2. Enters email and role

@@ -37,20 +37,43 @@ exports.updateStudent = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        
+
         // Don't allow password updates through this endpoint
         delete updates.password;
-        
-        const student = await Student.findByIdAndUpdate(
-            id, 
-            updates, 
-            { new: true, runValidators: true }
-        ).select('-password');
-        
-        if (!student) {
+
+        const currentStudent = await Student.findById(id);
+        if (!currentStudent) {
             return res.status(404).json({ message: 'Student not found' });
         }
-        
+
+        // Handle Proctor Assignment Change
+        if (updates.proctorId !== undefined) {
+            const oldProctorId = currentStudent.proctorId;
+            const newProctorId = updates.proctorId;
+
+            // If proctor is changing
+            if (oldProctorId && (!newProctorId || oldProctorId.toString() !== newProctorId)) {
+                // Remove from old proctor
+                await Proctor.findByIdAndUpdate(oldProctorId, {
+                    $pull: { assignedStudents: id }
+                });
+            }
+
+            // If new proctor is assigned
+            if (newProctorId) {
+                // Add to new proctor
+                await Proctor.findByIdAndUpdate(newProctorId, {
+                    $addToSet: { assignedStudents: id }
+                });
+            }
+        }
+
+        const student = await Student.findByIdAndUpdate(
+            id,
+            updates,
+            { new: true, runValidators: true }
+        ).select('-password');
+
         res.json(student);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -62,20 +85,20 @@ exports.updateProctor = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        
+
         // Don't allow password updates through this endpoint
         delete updates.password;
-        
+
         const proctor = await Proctor.findByIdAndUpdate(
-            id, 
-            updates, 
+            id,
+            updates,
             { new: true, runValidators: true }
         ).select('-password');
-        
+
         if (!proctor) {
             return res.status(404).json({ message: 'Proctor not found' });
         }
-        
+
         res.json(proctor);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -87,20 +110,20 @@ exports.updateAdmin = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        
+
         // Don't allow password updates through this endpoint
         delete updates.password;
-        
+
         const admin = await Admin.findByIdAndUpdate(
-            id, 
-            updates, 
+            id,
+            updates,
             { new: true, runValidators: true }
         ).select('-password');
-        
+
         if (!admin) {
             return res.status(404).json({ message: 'Admin not found' });
         }
-        
+
         res.json(admin);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -111,17 +134,17 @@ exports.updateAdmin = async (req, res) => {
 exports.deleteStudent = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // Also delete related hackathons
         const Hackathon = require('../models/Hackathon');
         await Hackathon.deleteMany({ studentId: id });
-        
+
         const student = await Student.findByIdAndDelete(id);
-        
+
         if (!student) {
             return res.status(404).json({ message: 'Student not found' });
         }
-        
+
         res.json({ message: 'Student and related hackathons deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -132,23 +155,23 @@ exports.deleteStudent = async (req, res) => {
 exports.deleteProctor = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // Check if proctor has assigned hackathons
         const Hackathon = require('../models/Hackathon');
         const assignedHackathons = await Hackathon.find({ proctorId: id });
-        
+
         if (assignedHackathons.length > 0) {
-            return res.status(400).json({ 
-                message: 'Cannot delete proctor with assigned hackathons. Please reassign hackathons first.' 
+            return res.status(400).json({
+                message: 'Cannot delete proctor with assigned hackathons. Please reassign hackathons first.'
             });
         }
-        
+
         const proctor = await Proctor.findByIdAndDelete(id);
-        
+
         if (!proctor) {
             return res.status(404).json({ message: 'Proctor not found' });
         }
-        
+
         res.json({ message: 'Proctor deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -159,18 +182,18 @@ exports.deleteProctor = async (req, res) => {
 exports.deleteAdmin = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // Prevent admin from deleting themselves
         if (id === req.user.id) {
             return res.status(400).json({ message: 'Cannot delete your own admin account' });
         }
-        
+
         const admin = await Admin.findByIdAndDelete(id);
-        
+
         if (!admin) {
             return res.status(404).json({ message: 'Admin not found' });
         }
-        
+
         res.json({ message: 'Admin deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -183,7 +206,7 @@ exports.getUserStats = async (req, res) => {
         const studentCount = await Student.countDocuments();
         const proctorCount = await Proctor.countDocuments();
         const adminCount = await Admin.countDocuments();
-        
+
         res.json({
             students: studentCount,
             proctors: proctorCount,

@@ -104,7 +104,7 @@ const emailTemplates = {
         `
     }),
 
-    creditAlert: (studentName, studentEmail, credits) => ({
+    participationAlert: (studentName, studentEmail, credits) => ({
         from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
         to: studentEmail,
         subject: 'Participation Alert - Action Required',
@@ -116,7 +116,6 @@ const emailTemplates = {
                 <div style="padding: 20px; background: #f9f9f9;">
                     <p>Dear ${studentName},</p>
                     <p>This is to inform you that you have currently participated in <strong>${credits} hackathons</strong>.</p>
-                    <p style="color: #d32f2f; font-weight: bold;">You must complete required hackathon participations before the end of your 5th semester.</p>
                     <p>Please submit your hackathon details at the earliest to avoid any issues.</p>
                     <hr style="margin: 20px 0;">
                     <div style="background: white; padding: 15px; border-left: 4px solid #830000;">
@@ -132,14 +131,14 @@ const emailTemplates = {
         `
     }),
 
-    hackathonSubmitted: (studentName, studentEmail, hackathonTitle) => ({
+    hackathonSubmitted: (studentName, studentEmail, hackathonTitle, eventType = 'Hackathon') => ({
         from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
         to: studentEmail,
-        subject: 'Hackathon Submitted Successfully',
+        subject: `${eventType} Submitted Successfully`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: #830000; color: white; padding: 20px; text-align: center;">
-                    <h2>Hackathon Submitted</h2>
+                    <h2>${eventType} Submitted</h2>
                 </div>
                 <div style="padding: 20px; background: #f9f9f9;">
                     <p>Dear ${studentName},</p>
@@ -159,19 +158,19 @@ const emailTemplates = {
         `
     }),
 
-    hackathonStatusUpdate: (studentName, studentEmail, hackathonTitle, status, rejectionReason = '') => ({
+    hackathonStatusUpdate: (studentName, studentEmail, hackathonTitle, status, rejectionReason = '', eventType = 'Hackathon') => ({
         from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
         to: studentEmail,
-        subject: `Hackathon ${status}`,
+        subject: `${eventType} ${status}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: ${status === 'Accepted' ? '#4caf50' : '#d32f2f'}; color: white; padding: 20px; text-align: center;">
-                    <h2>Hackathon ${status}</h2>
+                    <h2>${eventType} ${status}</h2>
                 </div>
                 <div style="padding: 20px; background: #f9f9f9;">
                     <p>Dear ${studentName},</p>
                     <p>Your participation in <strong>${hackathonTitle}</strong> has been <strong>${status}</strong>.</p>
-                    ${status === 'Declined' ? `<p style="color: #d32f2f;"><strong>Reason:</strong> ${rejectionReason}</p>` : '<p style="color: #4caf50;">Congratulations! Your hackathon participation has been verified.</p>'}
+                    ${status === 'Declined' ? `<p style="color: #d32f2f;"><strong>Reason:</strong> ${rejectionReason}</p>` : `<p style="color: #4caf50;">Congratulations! Your ${eventType.toLowerCase()} participation has been verified.</p>`}
                     <hr style="margin: 20px 0;">
                     <div style="background: white; padding: 15px; border-left: 4px solid #830000;">
                         <h3 style="margin-top: 0;">Contact Information</h3>
@@ -257,11 +256,11 @@ const emailTemplates = {
     participationRequest: (proctorName, proctorEmail, studentName, hackathonTitle) => ({
         from: '"TCE CSBS Hackathon Portal" <no-reply@portal.com>',
         to: proctorEmail,
-        subject: `📋 Participation Request: ${studentName} for ${hackathonTitle}`,
+        subject: `  Participation Request: ${studentName} for ${hackathonTitle}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: #2196f3; color: white; padding: 20px; text-align: center;">
-                    <h2>📋 New Participation Request</h2>
+                    <h2>  New Participation Request</h2>
                 </div>
                 <div style="padding: 20px; background: #f9f9f9;">
                     <p>Dear ${proctorName},</p>
@@ -322,6 +321,49 @@ const emailTemplates = {
                 </div>
             </div>
         `
+    }),
+
+    opportunityExposed: (studentName, studentEmail, oppTitle, link) => ({
+        from: '"TCE CSBS Connect" <no-reply@portal.com>',
+        to: studentEmail,
+        subject: `✨ You Matched: ${oppTitle}`,
+        html: `
+             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #6a1b9a; color: white; padding: 20px; text-align: center;">
+                    <h2>New Opportunity Match!</h2>
+                </div>
+                <div style="padding: 20px; background: #f9f9f9;">
+                    <p>Dear ${studentName},</p>
+                    <p>We found a new opportunity that matches your profile perfectly!</p>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6a1b9a;">
+                        <h3 style="margin-top: 0; color: #6a1b9a;">${oppTitle}</h3>
+                        <p>You have been selected based on your academic performance and skills.</p>
+                    </div>
+
+                    <p>Please log in to your dashboard to view details and mark your interest.</p>
+                </div>
+            </div>
+        `
+    }),
+
+    opportunityNudge: (studentName, studentEmail, oppTitle) => ({
+        from: '"TCE CSBS Connect" <no-reply@portal.com>',
+        to: studentEmail,
+        subject: `  Reminder: Interest Pending for ${oppTitle}`,
+        html: `
+             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #ffa000; color: white; padding: 20px; text-align: center;">
+                    <h2>Action Required</h2>
+                </div>
+                <div style="padding: 20px; background: #f9f9f9;">
+                    <p>Dear ${studentName},</p>
+                    <p>Your proctor is waiting for your response regarding:</p>
+                    <h3 style="color: #333;">${oppTitle}</h3>
+                    <p>Please confirm if you are interested or not on your dashboard.</p>
+                </div>
+            </div>
+        `
     })
 };
 
@@ -361,7 +403,21 @@ const sendEmail = async (emailOptions, retries = 3) => {
     }
 };
 
+const sendEmailBatch = async (recipients, templateGenerator) => {
+    console.log(`Starting batch email send to ${recipients.length} recipients...`);
+    let count = 0;
+    for (const recipient of recipients) {
+        // templateGenerator(recipient) returns the email options
+        const options = templateGenerator(recipient);
+        const result = await sendEmail(options);
+        if (result && result.success) count++;
+    }
+    console.log(`Batch send complete. Sent ${count}/${recipients.length}`);
+    return count;
+};
+
 module.exports = {
     sendEmail,
+    sendEmailBatch,
     emailTemplates
 };

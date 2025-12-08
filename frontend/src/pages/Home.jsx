@@ -14,6 +14,7 @@ const Home = () => {
     const [upcomingHackathons, setUpcomingHackathons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [upcomingLoading, setUpcomingLoading] = useState(true);
+    const [selectedPoster, setSelectedPoster] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -85,7 +86,7 @@ const Home = () => {
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                 }}
             >
-                <h2 style={{ color: '#830000', marginBottom: '30px', textAlign: 'center' }}>🚀 Upcoming Hackathons</h2>
+                <h2 style={{ color: '#830000', marginBottom: '30px', textAlign: 'center' }}>Upcoming Hackathons</h2>
                 {upcomingLoading ? (
                     <p style={{ textAlign: 'center' }}>Loading upcoming hackathons...</p>
                 ) : upcomingHackathons.length === 0 ? (
@@ -108,15 +109,22 @@ const Home = () => {
                                 }}
                             >
                                 {/* Poster Image */}
-                                <div style={{ height: '200px', overflow: 'hidden', background: '#f5f5f5' }}>
+                                <div style={{ height: '200px', overflow: 'hidden', background: '#f5f5f5', cursor: 'pointer' }}
+                                    onClick={() => setSelectedPoster({
+                                        url: `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`,
+                                        title: hackathon.title
+                                    })}>
                                     <img
                                         src={`http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`}
                                         alt={hackathon.title}
                                         style={{
                                             width: '100%',
                                             height: '100%',
-                                            objectFit: 'cover'
+                                            objectFit: 'cover',
+                                            transition: 'transform 0.3s ease'
                                         }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                                         onError={(e) => {
                                             e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzUwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIFBvc3RlciBBdmFpbGFibGU8L3RleHQ+PC9zdmc+';
                                         }}
@@ -168,7 +176,7 @@ const Home = () => {
                                             onMouseEnter={(e) => e.target.style.background = '#a52a2a'}
                                             onMouseLeave={(e) => e.target.style.background = '#830000'}
                                         >
-                                            🚀 Enroll Now
+                                            Enroll Now
                                         </button>
                                     )}
                                 </div>
@@ -291,6 +299,74 @@ const Home = () => {
                     <p>🌐 <a href="http://www.tce.edu" target="_blank" rel="noopener noreferrer" style={{ color: '#830000', textDecoration: 'none' }}>www.tce.edu</a></p>
                 </div>
             </motion.section>
+
+            {/* Poster Modal */}
+            {selectedPoster && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.9)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px',
+                        cursor: 'pointer'
+                    }}
+                    onClick={() => setSelectedPoster(null)}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+                        <button
+                            style={{
+                                position: 'absolute',
+                                top: '-40px',
+                                right: '0',
+                                background: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '40px',
+                                height: '40px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPoster(null);
+                            }}
+                        >
+                            ×
+                        </button>
+                        <img
+                            src={selectedPoster.url}
+                            alt={selectedPoster.title}
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '90vh',
+                                objectFit: 'contain',
+                                borderRadius: '8px',
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <h3 style={{
+                            color: 'white',
+                            textAlign: 'center',
+                            marginTop: '15px',
+                            fontSize: '1.2rem'
+                        }}>
+                            {selectedPoster.title}
+                        </h3>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

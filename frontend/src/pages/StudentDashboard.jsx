@@ -3,19 +3,24 @@ import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import './Dashboard.css';
 import { motion, AnimatePresence } from 'framer-motion';
+import ProfileCompletionModal from '../components/ProfileCompletionModal';
 
 const StudentDashboard = () => {
     const { user } = useContext(AuthContext);
     const [hackathons, setHackathons] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
+        eventType: 'Hackathon',
         hackathonTitle: '',
         organization: '',
         description: '',
         mode: 'Online',
         date: '',
         year: new Date().getFullYear(),
-        certificate: null
+        certificate: null,
+        attendanceStatus: 'Attended',
+        achievementLevel: 'Participation',
+        certificateType: 'Participation Certificate'
     });
     const [credits, setCredits] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -30,6 +35,22 @@ const StudentDashboard = () => {
 
     const [approvedEnrollments, setApprovedEnrollments] = useState([]);
     const [selectedEnrollmentId, setSelectedEnrollmentId] = useState('');
+    const [recommendedOpportunities, setRecommendedOpportunities] = useState([]);
+
+    // Profile Modal State
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [isProfileMandatory, setIsProfileMandatory] = useState(false);
+
+    useEffect(() => {
+        // Check if mandatory profile data is missing (Onboarding Flow)
+        if (user) {
+            const isMissingData = !user.registerNo || !user.cgpa || user.cgpa === 0;
+            if (isMissingData) {
+                setIsProfileMandatory(true);
+                setShowProfileModal(true);
+            }
+        }
+    }, [user]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -38,7 +59,8 @@ const StudentDashboard = () => {
                 fetchHackathons(),
                 fetchCredits(),
                 checkCreditAlert(),
-                fetchApprovedEnrollments()
+                fetchApprovedEnrollments(),
+                fetchRecommendedOpportunities()
             ]);
             setLoading(false);
         };
@@ -77,9 +99,33 @@ const StudentDashboard = () => {
         }
     };
 
+    const fetchRecommendedOpportunities = async () => {
+        try {
+            const res = await API.get('/opportunities/recommended');
+            // Ensure uniqueness just in case
+            const unique = res.data.filter((v, i, a) => a.findIndex(t => (t._id === v._id)) === i);
+            setRecommendedOpportunities(unique);
+        } catch (err) {
+            console.error('Error fetching recommendations:', err);
+        }
+    };
+
+    const handleMarkInterest = async (oppId) => {
+        try {
+            await API.put(`/opportunities/${oppId}/interest`);
+            alert('Great! We have notified your proctor that you are interested.');
+            // Update local state to show "Request Sent"
+            setRecommendedOpportunities(prev => prev.map(o =>
+                o._id === oppId ? { ...o, markedInterest: true } : o
+            ));
+        } catch (error) {
+            alert('Failed to mark interest: ' + error.message);
+        }
+    };
+
     const fetchCredits = async () => {
         try {
-            const res = await API.get('/student/credits');
+            const res = await API.get('/student/participation-count');
             setCredits(res.data.credits);
         } catch (err) {
             console.error('Error fetching credits:', err);
@@ -88,7 +134,7 @@ const StudentDashboard = () => {
 
     const checkCreditAlert = async () => {
         try {
-            await API.post('/student/check-credits');
+            await API.post('/student/check-participation');
         } catch (err) {
             console.error('Error checking credits:', err);
         }
@@ -139,7 +185,31 @@ const StudentDashboard = () => {
         if (['certificate'].includes(e.target.name)) {
             setFormData({ ...formData, [e.target.name]: e.target.files[0] });
         } else {
-            setFormData({ ...formData, [e.target.name]: e.target.value });
+            let updatedFormData = { ...formData, [e.target.name]: e.target.value };
+
+            // Auto-update certificate type based on achievement level
+            if (e.target.name === 'achievementLevel') {
+                const achievementToCertificate = {
+                    'Winner': 'Winner Certificate',
+                    'Runner-up': 'Runner-up Certificate',
+                    'Participation': 'Participation Certificate',
+                    'None': 'None'
+                };
+                updatedFormData.certificateType = achievementToCertificate[e.target.value];
+            }
+
+            // If attendance is "Did Not Attend", set achievement to None
+            if (e.target.name === 'attendanceStatus') {
+                if (e.target.value !== 'Attended') {
+                    updatedFormData.certificate = null;
+                }
+                if (e.target.value === 'Did Not Attend') {
+                    updatedFormData.achievementLevel = 'None';
+                    updatedFormData.certificateType = 'None';
+                }
+            }
+
+            setFormData(updatedFormData);
 
             // Fetch suggestions when typing hackathon title
             if (e.target.name === 'hackathonTitle' && e.target.value.length > 2) {
@@ -173,17 +243,21 @@ const StudentDashboard = () => {
 
         try {
             await API.post('/hackathons/submit', data);
-            setSuccess('Hackathon submitted successfully! You will receive a confirmation email.');
+            setSuccess(`${formData.eventType} submitted successfully! You will receive a confirmation email.`);
 
             // Reset form
             setFormData({
+                eventType: 'Hackathon',
                 hackathonTitle: '',
                 organization: '',
                 description: '',
                 mode: 'Online',
                 date: '',
                 year: new Date().getFullYear(),
-                certificate: null
+                certificate: null,
+                attendanceStatus: 'Attended',
+                achievementLevel: 'Participation',
+                certificateType: 'Participation Certificate'
             });
             setSelectedEnrollmentId('');
 
@@ -219,8 +293,29 @@ const StudentDashboard = () => {
         <div className="dashboard-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
             {/* Simplified Welcome Section */}
             <div style={{ marginBottom: '30px', borderBottom: '1px solid #eee', paddingBottom: '20px' }}>
-                <h1 style={{ color: '#333', margin: '0 0 10px 0' }}>Welcome, {user?.name || 'Student'}</h1>
-                <p style={{ color: '#666', margin: 0 }}>Manage your hackathons and track your participation.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <h1 style={{ color: '#333', margin: '0 0 10px 0' }}>Welcome, {user?.name || 'Student'}</h1>
+                        <p style={{ color: '#666', margin: 0 }}>Manage your hackathons and track your participation.</p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            setIsProfileMandatory(false);
+                            setShowProfileModal(true);
+                        }}
+                        style={{
+                            background: 'none',
+                            border: '1px solid #830000',
+                            color: '#830000',
+                            padding: '8px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        ✏️ Edit Profile
+                    </button>
+                </div>
 
                 <div style={{ display: 'flex', gap: '20px', marginTop: '20px', flexWrap: 'wrap' }}>
                     <div className="info-pill">
@@ -241,7 +336,7 @@ const StudentDashboard = () => {
             {/* Success/Error Messages */}
             {success && (
                 <div style={{ background: '#d4edda', color: '#155724', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #c3e6cb' }}>
-                    ✅ {success}
+                    {success}
                 </div>
             )}
             {error && (
@@ -250,9 +345,52 @@ const StudentDashboard = () => {
                 </div>
             )}
 
+            {/* Recommended Opportunities */}
+            {recommendedOpportunities.length > 0 && (
+                <div style={{ marginBottom: '30px' }}>
+                    <h2 style={{ margin: '0 0 15px 0', color: '#2e7d32', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        ✨ Recommended for You
+                    </h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                        {recommendedOpportunities.map(opp => (
+                            <div key={opp._id} style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderLeft: '4px solid #2e7d32' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                                    <div>
+                                        <h3 style={{ margin: '0 0 5px 0', fontSize: '1.2rem' }}>{opp.title}</h3>
+                                        <span style={{ background: '#e3f2fd', color: '#01579b', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>
+                                            {opp.type}
+                                        </span>
+                                    </div>
+                                    <span style={{ fontSize: '0.9rem', color: '#666' }}>{new Date(opp.eventDate).toLocaleDateString()}</span>
+                                </div>
+                                <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '15px' }}>{opp.organization}</p>
+                                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                                    <button
+                                        onClick={() => handleMarkInterest(opp._id)}
+                                        disabled={opp.markedInterest}
+                                        style={{
+                                            flex: 1,
+                                            padding: '8px',
+                                            background: opp.markedInterest ? '#ccc' : '#2e7d32',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: opp.markedInterest ? 'not-allowed' : 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {opp.markedInterest ? '  Request Sent' : "I'm Interested"}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Main Action Area */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                <h2 style={{ margin: 0, color: '#830000' }}>My Hackathons</h2>
+                <h2 style={{ margin: 0, color: '#830000' }}>My Events</h2>
                 <button
                     onClick={() => setShowForm(!showForm)}
                     style={{
@@ -268,7 +406,7 @@ const StudentDashboard = () => {
                         gap: '8px'
                     }}
                 >
-                    {showForm ? '✖ Cancel' : '➕ Submit Hackathon Details'}
+                    {showForm ? 'Cancel' : 'Submit Event Details'}
                 </button>
             </div>
 
@@ -282,8 +420,26 @@ const StudentDashboard = () => {
                         style={{ overflow: 'hidden', marginBottom: '30px' }}
                     >
                         <div className="form-card" style={{ background: '#f9f9f9', border: '1px solid #ddd', boxShadow: 'none' }}>
-                            <h3 style={{ marginTop: 0, color: '#333' }}>New Hackathon Submission</h3>
+                            <h3 style={{ marginTop: 0, color: '#333' }}>New Event Submission</h3>
                             <form onSubmit={handleSubmit}>
+                                {/* Event Type Selector */}
+                                <div className="form-group">
+                                    <label>Event Type *</label>
+                                    <select
+                                        name="eventType"
+                                        value={formData.eventType}
+                                        onChange={handleChange}
+                                        required
+                                        style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '1rem' }}
+                                    >
+                                        <option value="Hackathon">Hackathon</option>
+                                        <option value="Codeathon">Codeathon</option>
+                                    </select>
+                                    <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+                                        Select the type of event you participated in
+                                    </small>
+                                </div>
+
                                 {approvedEnrollments.length > 0 && (
                                     <div className="form-group">
                                         <label>Select Approved Hackathon (Optional)</label>
@@ -303,14 +459,14 @@ const StudentDashboard = () => {
                                     </div>
                                 )}
                                 <div className="form-group" style={{ position: 'relative' }}>
-                                    <label>Hackathon Title *</label>
+                                    <label>{formData.eventType} Title *</label>
                                     <input
                                         type="text"
                                         name="hackathonTitle"
                                         value={formData.hackathonTitle}
                                         onChange={handleChange}
                                         required
-                                        placeholder="e.g., Smart India Hackathon, CodeFest"
+                                        placeholder={formData.eventType === 'Hackathon' ? 'e.g., Smart India Hackathon, CodeFest' : 'e.g., Google Code Jam, LeetCode Contest'}
                                         autoComplete="off"
                                     />
                                     {showSuggestions && suggestions.length > 0 && (
@@ -378,18 +534,82 @@ const StudentDashboard = () => {
                                     </div>
                                 </div>
 
-                                <h4 style={{ marginTop: '20px', marginBottom: '10px' }}>Upload Certificate</h4>
+                                {/* Enhanced Tracking Section */}
+                                <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#830000' }}>    Participation Details</h4>
+
                                 <div className="form-group">
-                                    <label>Certificate (PDF/Image) *</label>
-                                    <input type="file" name="certificate" ref={certificateRef} onChange={handleChange} required accept=".pdf,.jpg,.jpeg,.png" />
+                                    <label>Attendance Status *</label>
+                                    <select name="attendanceStatus" value={formData.attendanceStatus} onChange={handleChange} required>
+                                        <option value="Attended">Attended</option>
+                                        <option value="Did Not Attend">Did Not Attend</option>
+                                        <option value="Registered">Registered Only</option>
+                                    </select>
+                                    <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+                                        Select "Attended" if you participated and have a certificate.
+                                    </small>
                                 </div>
+
+                                {formData.attendanceStatus === 'Attended' && (
+                                    <>
+                                        <div className="form-group">
+                                            <label>Achievement Level *</label>
+                                            <select name="achievementLevel" value={formData.achievementLevel} onChange={handleChange} required>
+                                                <option value="Participation">Participation</option>
+                                                <option value="Runner-up">Runner-up</option>
+                                                <option value="Winner">Winner</option>
+                                            </select>
+                                            <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+                                                💡 Winners get 3 points, Runner-ups get 2 points, Participation gets 1 point
+                                            </small>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label>Certificate Type</label>
+                                            <input
+                                                type="text"
+                                                value={formData.certificateType}
+                                                readOnly
+                                                style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                                            />
+                                            <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+                                                Auto-selected based on achievement level
+                                            </small>
+                                        </div>
+                                    </>
+                                )}
+
+                                {formData.attendanceStatus === 'Did Not Attend' && (
+                                    <div style={{ background: '#fff3cd', padding: '15px', borderRadius: '6px', marginBottom: '15px', border: '1px solid #ffc107' }}>
+                                        <p style={{ margin: 0, color: '#856404' }}>
+                                            <strong>Note:</strong> Submissions marked as "Did Not Attend" will not earn participation points.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {formData.attendanceStatus === 'Registered' && (
+                                    <div style={{ background: '#d1ecf1', padding: '15px', borderRadius: '6px', marginBottom: '15px', border: '1px solid #bee5eb' }}>
+                                        <p style={{ margin: 0, color: '#0c5460' }}>
+                                            ℹ️ <strong>Info:</strong> For "Registered Only" submissions, certificate upload is optional. You can submit this to track your registration.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {formData.attendanceStatus === 'Attended' && (
+                                    <>
+                                        <h4 style={{ marginTop: '20px', marginBottom: '10px' }}>Upload Certificate</h4>
+                                        <div className="form-group">
+                                            <label>Certificate (PDF/Image) *</label>
+                                            <input type="file" name="certificate" ref={certificateRef} onChange={handleChange} required accept=".pdf,.jpg,.jpeg,.png" />
+                                        </div>
+                                    </>
+                                )}
 
                                 <button type="submit" className="submit-btn" disabled={submitting} style={{
                                     background: submitting ? '#ccc' : '#d32f2f',
                                     width: '100%',
                                     marginTop: '20px'
                                 }}>
-                                    {submitting ? '⏳ Submitting...' : 'Submit Hackathon'}
+                                    {submitting ? 'Submitting...' : `Submit ${formData.eventType}`}
                                 </button>
                             </form>
                         </div>
@@ -402,7 +622,7 @@ const StudentDashboard = () => {
                 {hackathons.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '8px', color: '#666' }}>
                         <p style={{ fontSize: '2rem', margin: 0 }}>📭</p>
-                        <p>No hackathons submitted yet.</p>
+                        <p>No events submitted yet.</p>
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gap: '20px' }}>
@@ -424,6 +644,59 @@ const StudentDashboard = () => {
                                     <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '0.9rem' }}>
                                         {hack.organization} • {new Date(hack.date).toLocaleDateString()} • {hack.year} • {hack.mode}
                                     </p>
+
+                                    {/* Event Type & Attendance & Achievement Badges */}
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                                        {/* Event Type Badge */}
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            background: hack.eventType === 'Codeathon' ? '#e3f2fd' : '#fce4ec',
+                                            color: hack.eventType === 'Codeathon' ? '#0277bd' : '#c2185b',
+                                            border: `1px solid ${hack.eventType === 'Codeathon' ? '#90caf9' : '#f48fb1'}`
+                                        }}>
+                                            {hack.eventType || 'Hackathon'}
+                                        </span>
+
+                                        {/* Attendance Badge */}
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            background: hack.attendanceStatus === 'Attended' ? '#e8f5e9' :
+                                                hack.attendanceStatus === 'Did Not Attend' ? '#ffebee' : '#fff8e1',
+                                            color: hack.attendanceStatus === 'Attended' ? '#2e7d32' :
+                                                hack.attendanceStatus === 'Did Not Attend' ? '#c62828' : '#f9a825',
+                                            border: `1px solid ${hack.attendanceStatus === 'Attended' ? '#a5d6a7' :
+                                                hack.attendanceStatus === 'Did Not Attend' ? '#ef9a9a' : '#ffe0b2'}`
+                                        }}>
+                                            {hack.attendanceStatus === 'Attended' ? '  Attended' :
+                                                hack.attendanceStatus === 'Did Not Attend' ? '❌ Did Not Attend' : '📝 Registered'}
+                                        </span>
+
+                                        {/* Achievement Badge */}
+                                        {hack.attendanceStatus === 'Attended' && hack.achievementLevel && (
+                                            <span style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                background: hack.achievementLevel === 'Winner' ? '#fff9c4' :
+                                                    hack.achievementLevel === 'Runner-up' ? '#e1f5fe' : '#f3e5f5',
+                                                color: hack.achievementLevel === 'Winner' ? '#f57f17' :
+                                                    hack.achievementLevel === 'Runner-up' ? '#01579b' : '#6a1b9a',
+                                                border: `1px solid ${hack.achievementLevel === 'Winner' ? '#fbc02d' :
+                                                    hack.achievementLevel === 'Runner-up' ? '#4fc3f7' : '#ba68c8'}`
+                                            }}>
+                                                {hack.achievementLevel === 'Winner' ? '   Winner' :
+                                                    hack.achievementLevel === 'Runner-up' ? '   Runner-up' : '📜 Participation'}
+                                            </span>
+                                        )}
+                                    </div>
+
                                     {hack.status === 'Declined' && (
                                         <p style={{ color: '#d32f2f', margin: '5px 0 0 0', fontSize: '0.9rem' }}>
                                             Reason: {hack.rejectionReason}
@@ -440,7 +713,7 @@ const StudentDashboard = () => {
                                         color: hack.status === 'Accepted' ? '#2e7d32' : hack.status === 'Declined' ? '#c62828' : '#ef6c00',
                                         border: `1px solid ${hack.status === 'Accepted' ? '#a5d6a7' : hack.status === 'Declined' ? '#ef9a9a' : '#ffe0b2'}`
                                     }}>
-                                        {hack.status === 'Pending' ? '⏳ Pending Verification' : hack.status === 'Accepted' ? '✅ Accepted' : '❌ Declined'}
+                                        {hack.status === 'Pending' ? '⏳ Pending Verification' : hack.status === 'Accepted' ? '  Accepted' : '❌ Declined'}
                                     </span>
                                 </div>
                             </div>
@@ -448,6 +721,12 @@ const StudentDashboard = () => {
                     </div>
                 )}
             </div>
+            {/* Profile Modal - Always rendered but visibility controlled by props */}
+            <ProfileCompletionModal
+                isOpen={showProfileModal}
+                onClose={() => setShowProfileModal(false)}
+                isMandatory={isProfileMandatory}
+            />
         </div>
     );
 };

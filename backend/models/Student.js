@@ -8,8 +8,10 @@ const studentSchema = new mongoose.Schema({
     registerNo: { type: String, required: true, unique: true },
     department: { type: String, required: true },
     year: { type: String, required: true, enum: ['1st', '2nd', '3rd', '4th'] },
+    cgpa: { type: Number, default: 0, min: 0, max: 10 },
     credits: { type: Number, default: 0 },
     verified: { type: Boolean, default: false },
+    proctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Proctor' }
 }, { timestamps: true });
 
 studentSchema.pre('save', async function () {

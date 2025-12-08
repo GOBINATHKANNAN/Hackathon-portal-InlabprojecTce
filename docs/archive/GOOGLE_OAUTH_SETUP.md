@@ -1,7 +1,7 @@
 # Google OAuth Setup Guide
 
 ## Current Status
-✅ Google Sign-In is now **FULLY FUNCTIONAL**!
+  Google Sign-In is now **FULLY FUNCTIONAL**!
 
 The button will trigger Google's sign-in popup, but you need to set up OAuth credentials first.
 
@@ -68,12 +68,12 @@ client_id: 'YOUR_ACTUAL_CLIENT_ID_HERE',
 
 ## Features
 
-✅ **Automatic Account Creation** (Students only)  
-✅ **Email Verification** (via Google)  
-✅ **Profile Picture** (from Google)  
-✅ **Secure Token-Based Auth**  
-✅ **Role-Based Access**  
-✅ **Welcome Email** (sent automatically)
+  **Automatic Account Creation** (Students only)  
+  **Email Verification** (via Google)  
+  **Profile Picture** (from Google)  
+  **Secure Token-Based Auth**  
+  **Role-Based Access**  
+  **Welcome Email** (sent automatically)
 
 ## Security
 

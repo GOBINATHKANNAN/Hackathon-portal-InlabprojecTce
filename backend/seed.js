@@ -22,15 +22,27 @@ mongoose.connect(MONGO_URI)
             }
 
             // Create Proctor
-            const proctorExists = await Proctor.findOne({ email: 'proctor@portal.com' });
+            const proctorExists = await Proctor.findOne({ email: 'proctor1@portal.com' });
             if (!proctorExists) {
                 await Proctor.create({
-                    name: 'Dr. Proctor',
-                    email: 'proctor@portal.com',
-                    password: 'proctorpassword',
+                    name: 'Dr. Subhashini',
+                    email: 'proctor1@portal.com',
+                    password: '123456789',
                     department: 'CSBS'
                 });
-                console.log('Proctor created: proctor@portal.com / proctorpassword');
+                console.log('Proctor created: proctor@portal.com');
+            }
+
+            // Create Second Proctor
+            const proctor2Exists = await Proctor.findOne({ email: 'proctor2@portal.com' });
+            if (!proctor2Exists) {
+                await Proctor.create({
+                    name: 'Dr. Priya',
+                    email: 'proctor2@portal.com',
+                    password: '123456a',
+                    department: 'CSBS'
+                });
+                console.log('Second Proctor created: proctor2@portal.com');
             } else {
                 console.log('Proctor already exists');
             }

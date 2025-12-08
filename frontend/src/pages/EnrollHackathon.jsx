@@ -9,13 +9,13 @@ const EnrollHackathon = () => {
     const { user } = useContext(AuthContext);
     const { hackathonId } = useParams();
     const navigate = useNavigate();
-    
+
     const [hackathon, setHackathon] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    
+
     const [formData, setFormData] = useState({
         experience: '',
         motivation: '',
@@ -36,7 +36,7 @@ const EnrollHackathon = () => {
                 setLoading(false);
             }
         };
-        
+
         if (hackathonId) {
             fetchHackathon();
         }
@@ -57,7 +57,7 @@ const EnrollHackathon = () => {
         try {
             await API.post(`/upcoming-hackathons/${hackathonId}/enroll`, formData);
             setSuccess('Enrollment request submitted successfully! You will receive a confirmation email.');
-            
+
             // Redirect after 2 seconds
             setTimeout(() => {
                 navigate('/student-dashboard');
@@ -116,10 +116,10 @@ const EnrollHackathon = () => {
                 </div>
 
                 {/* Hackathon Details */}
-                <div style={{ 
-                    background: 'white', 
-                    padding: '25px', 
-                    borderRadius: '12px', 
+                <div style={{
+                    background: 'white',
+                    padding: '25px',
+                    borderRadius: '12px',
                     marginBottom: '30px',
                     border: '1px solid #ddd',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
@@ -137,7 +137,7 @@ const EnrollHackathon = () => {
                 {/* Success/Error Messages */}
                 {success && (
                     <div style={{ background: '#d4edda', color: '#155724', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #c3e6cb' }}>
-                        ✅ {success}
+                        {success}
                     </div>
                 )}
                 {error && (
@@ -158,73 +158,73 @@ const EnrollHackathon = () => {
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label>Student Name *</label>
-                            <input 
-                                type="text" 
-                                value={user?.name || ''} 
-                                disabled 
+                            <input
+                                type="text"
+                                value={user?.name || ''}
+                                disabled
                                 style={{ background: '#f0f0f0' }}
                             />
                         </div>
-                        
+
                         <div className="form-group">
                             <label>Register Number *</label>
-                            <input 
-                                type="text" 
-                                value={user?.registerNo || ''} 
-                                disabled 
+                            <input
+                                type="text"
+                                value={user?.registerNo || ''}
+                                disabled
                                 style={{ background: '#f0f0f0' }}
                             />
                         </div>
-                        
+
                         <div className="form-group">
                             <label>Department *</label>
-                            <input 
-                                type="text" 
-                                value={user?.department || ''} 
-                                disabled 
+                            <input
+                                type="text"
+                                value={user?.department || ''}
+                                disabled
                                 style={{ background: '#f0f0f0' }}
                             />
                         </div>
-                        
+
                         <div className="form-group">
                             <label>Year *</label>
-                            <input 
-                                type="text" 
-                                value={user?.year || ''} 
-                                disabled 
+                            <input
+                                type="text"
+                                value={user?.year || ''}
+                                disabled
                                 style={{ background: '#f0f0f0' }}
                             />
                         </div>
-                        
+
                         <div className="form-group">
                             <label>Email *</label>
-                            <input 
-                                type="email" 
-                                value={user?.email || ''} 
-                                disabled 
+                            <input
+                                type="email"
+                                value={user?.email || ''}
+                                disabled
                                 style={{ background: '#f0f0f0' }}
                             />
                         </div>
-                        
+
                         <div className="form-group">
                             <label>Phone Number *</label>
-                            <input 
-                                type="tel" 
-                                name="phone" 
-                                value={formData.phone} 
-                                onChange={handleChange} 
-                                required 
+                            <input
+                                type="tel"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                required
                                 placeholder="Enter your phone number"
                             />
                         </div>
 
                         <div className="form-group">
                             <label>Previous Experience *</label>
-                            <textarea 
-                                name="experience" 
-                                value={formData.experience} 
-                                onChange={handleChange} 
-                                required 
+                            <textarea
+                                name="experience"
+                                value={formData.experience}
+                                onChange={handleChange}
+                                required
                                 placeholder="Describe your previous hackathon or coding experience..."
                                 rows="4"
                             />
@@ -232,11 +232,11 @@ const EnrollHackathon = () => {
 
                         <div className="form-group">
                             <label>Motivation for Participating *</label>
-                            <textarea 
-                                name="motivation" 
-                                value={formData.motivation} 
-                                onChange={handleChange} 
-                                required 
+                            <textarea
+                                name="motivation"
+                                value={formData.motivation}
+                                onChange={handleChange}
+                                required
                                 placeholder="Why do you want to participate in this hackathon?"
                                 rows="4"
                             />
@@ -244,11 +244,11 @@ const EnrollHackathon = () => {
 
                         <div className="form-group">
                             <label>Technical Skills *</label>
-                            <textarea 
-                                name="skills" 
-                                value={formData.skills} 
-                                onChange={handleChange} 
-                                required 
+                            <textarea
+                                name="skills"
+                                value={formData.skills}
+                                onChange={handleChange}
+                                required
                                 placeholder="List your technical skills (e.g., programming languages, frameworks, tools)..."
                                 rows="3"
                             />
@@ -256,9 +256,9 @@ const EnrollHackathon = () => {
 
                         <div className="form-group">
                             <label>Team Preference *</label>
-                            <select 
-                                name="teamPreference" 
-                                value={formData.teamPreference} 
+                            <select
+                                name="teamPreference"
+                                value={formData.teamPreference}
                                 onChange={handleChange}
                                 required
                             >
@@ -268,23 +268,23 @@ const EnrollHackathon = () => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
-                            <button 
-                                type="submit" 
-                                className="submit-btn" 
+                            <button
+                                type="submit"
+                                className="submit-btn"
                                 disabled={submitting}
-                                style={{ 
+                                style={{
                                     background: submitting ? '#ccc' : '#830000',
                                     flex: 1
                                 }}
                             >
-                                {submitting ? '⏳ Submitting...' : '🚀 Submit Enrollment'}
+                                {submitting ? 'Submitting...' : 'Submit Enrollment'}
                             </button>
-                            
-                            <button 
-                                type="button" 
+
+                            <button
+                                type="button"
                                 onClick={() => navigate('/')}
                                 className="cancel-btn"
-                                style={{ 
+                                style={{
                                     background: '#666',
                                     color: 'white',
                                     border: 'none',

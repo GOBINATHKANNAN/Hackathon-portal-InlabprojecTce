@@ -5,8 +5,10 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 
-const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+const generateToken = (id, role, registerNo = null) => {
+    const payload = { id, role };
+    if (registerNo) payload.registerNo = registerNo;
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 };
 
 // Student Auth
@@ -43,7 +45,7 @@ exports.loginStudent = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         res.json({
-            token: generateToken(student._id, 'student'),
+            token: generateToken(student._id, 'student', student.registerNo),
             user: { ...student._doc, role: 'student' }
         });
     } catch (error) {
@@ -258,9 +260,7 @@ exports.googleLogin = async (req, res) => {
         // Decode the Google JWT token (in production, verify with Google's API)
         const base64Url = credential.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+        const jsonPayload = Buffer.from(base64, 'base64').toString('utf-8');
 
         const googleUser = JSON.parse(jsonPayload);
 
@@ -323,7 +323,7 @@ exports.googleLogin = async (req, res) => {
         }
 
         // Generate token and return user
-        const token = generateToken(user._id, role);
+        const token = generateToken(user._id, role, user.registerNo);
 
         res.json({
             token,

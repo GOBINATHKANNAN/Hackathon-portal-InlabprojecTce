@@ -7,11 +7,12 @@ const { sendEmail, emailTemplates } = require('../services/emailService');
 // Submit Hackathon
 exports.submitHackathon = async (req, res) => {
     try {
-        const { hackathonTitle, organization, mode, date, year, description, upcomingHackathonId } = req.body;
+        const { hackathonTitle, organization, mode, date, year, description, upcomingHackathonId, attendanceStatus, achievementLevel, certificateType, eventType } = req.body;
         const certificateFilePath = req.files['certificate'] ? req.files['certificate'][0].path : null;
 
-        if (!certificateFilePath) {
-            return res.status(400).json({ message: 'Certificate file is required' });
+        // Certificate is required only if attendance status is 'Attended'
+        if (attendanceStatus === 'Attended' && !certificateFilePath) {
+            return res.status(400).json({ message: 'Certificate file is required for attended hackathons' });
         }
 
         // If submitting for an upcoming hackathon, verify approval
@@ -30,14 +31,18 @@ exports.submitHackathon = async (req, res) => {
         // Create new hackathon submission
         const hackathon = await Hackathon.create({
             studentId: req.user.id,
+            eventType: eventType || 'Hackathon',
             hackathonTitle: hackathonTitle.trim(),
             organization: organization.trim(),
             mode,
             date: new Date(date),
             year: parseInt(year),
             description: description.trim(),
-            certificateFilePath,
-            upcomingHackathonId: upcomingHackathonId || undefined
+            certificateFilePath: certificateFilePath || undefined, // Optional
+            upcomingHackathonId: upcomingHackathonId || undefined,
+            attendanceStatus: attendanceStatus || 'Attended',
+            achievementLevel: achievementLevel || 'Participation',
+            certificateType: certificateType || 'Participation Certificate'
         });
 
         // Find student to get department and assign proctor
@@ -59,7 +64,7 @@ exports.submitHackathon = async (req, res) => {
 
         // Send Email Notification to Student
         console.log('Sending hackathon submission confirmation email to:', student.email);
-        const emailResult = await sendEmail(emailTemplates.hackathonSubmitted(student.name, student.email, hackathonTitle));
+        const emailResult = await sendEmail(emailTemplates.hackathonSubmitted(student.name, student.email, hackathonTitle, hackathon.eventType));
 
         if (!emailResult.success) {
             console.error('Hackathon submission confirmation email failed');
@@ -68,8 +73,8 @@ exports.submitHackathon = async (req, res) => {
         res.status(201).json({ message: 'Hackathon submitted successfully', hackathon });
     } catch (error) {
         if (error.code === 11000) {
-            // Duplicate key error
-            res.status(400).json({ message: 'This hackathon already exists for the specified year' });
+            // Duplicate key error - this should only happen if the same student tries to submit the same hackathon twice
+            res.status(400).json({ message: 'You have already submitted this hackathon for the specified year' });
         } else {
             res.status(500).json({ error: error.message });
         }
@@ -87,11 +92,35 @@ exports.getMyHackathons = async (req, res) => {
 };
 
 // Get Proctor Assigned Hackathons
+// Get Proctor Assigned Hackathons
 exports.getAssignedHackathons = async (req, res) => {
     try {
-        const hackathons = await Hackathon.find({ proctorId: req.user.id })
-            .populate('studentId', 'name registerNo year department')
+        const { view } = req.query;
+        let filter = {};
+
+        if (view === 'all') {
+            // Find current proctor to get department
+            const me = await Proctor.findById(req.user.id);
+            // Find all students in this department
+            const deptStudents = await Student.find({ department: me.department }).select('_id');
+            const studentIds = deptStudents.map(s => s._id);
+            filter = { studentId: { $in: studentIds } };
+        } else {
+            // Default: Only my assigned students
+            const assignedStudents = await Student.find({ proctorId: req.user.id }).select('_id');
+            const studentIds = assignedStudents.map(s => s._id);
+            filter = { studentId: { $in: studentIds } };
+        }
+
+        const hackathons = await Hackathon.find(filter)
+            .populate({
+                path: 'studentId',
+                select: 'name registerNo year department proctorId',
+                // Nested populate to show who the proctor is
+                populate: { path: 'proctorId', select: 'name' }
+            })
             .sort({ createdAt: -1 });
+
         res.json(hackathons);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -102,24 +131,22 @@ exports.getAssignedHackathons = async (req, res) => {
 exports.updateHackathonStatus = async (req, res) => {
     try {
         console.log('Updating hackathon status for ID:', req.params.id);
-        console.log('Request body:', req.body);
-        console.log('User ID:', req.user.id);
-
         const { status, rejectionReason } = req.body;
-        const hackathon = await Hackathon.findById(req.params.id);
 
+        const hackathon = await Hackathon.findById(req.params.id);
         if (!hackathon) {
-            console.log('Hackathon not found');
             return res.status(404).json({ message: 'Hackathon not found' });
         }
 
-        console.log('Found hackathon:', hackathon);
-        console.log('Hackathon proctorId:', hackathon.proctorId);
-        console.log('User ID (string):', req.user.id.toString());
+        // Strict Check: Verify against Student's CURRENT Proctor
+        const student = await Student.findById(hackathon.studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Student record not found' });
+        }
 
-        if (hackathon.proctorId.toString() !== req.user.id.toString()) {
+        if (!student.proctorId || student.proctorId.toString() !== req.user.id.toString()) {
             console.log('Authorization failed - proctor mismatch');
-            return res.status(403).json({ message: 'Not authorized to update this hackathon' });
+            return res.status(403).json({ message: 'Not authorized: You are not the assigned proctor for this student.' });
         }
 
         const previousStatus = hackathon.status;
@@ -133,22 +160,38 @@ exports.updateHackathonStatus = async (req, res) => {
         await hackathon.save();
         console.log('Hackathon saved successfully');
 
+        // Calculate credits based on attendance and achievement level
+        const calculateCredits = (attendanceStatus, achievementLevel) => {
+            if (attendanceStatus === 'Did Not Attend') return 0;
+            if (attendanceStatus === 'Registered') return 0;
+
+            // Weighted scoring for attended hackathons
+            switch (achievementLevel) {
+                case 'Winner': return 3;
+                case 'Runner-up': return 2;
+                case 'Participation': return 1;
+                default: return 1;
+            }
+        };
+
         // Update student credits if status changed to Accepted
         if (previousStatus !== 'Accepted' && status === 'Accepted') {
             const student = await Student.findById(hackathon.studentId);
             if (student) {
-                student.credits += 1;
+                const creditsToAdd = calculateCredits(hackathon.attendanceStatus, hackathon.achievementLevel);
+                student.credits += creditsToAdd;
                 await student.save();
-                console.log('Student credits updated');
+                console.log(`Student credits updated: +${creditsToAdd} (Total: ${student.credits})`);
             }
         }
         // Remove credit if status changed from Accepted to something else
         else if (previousStatus === 'Accepted' && status !== 'Accepted') {
             const student = await Student.findById(hackathon.studentId);
             if (student && student.credits > 0) {
-                student.credits -= 1;
+                const creditsToRemove = calculateCredits(hackathon.attendanceStatus, hackathon.achievementLevel);
+                student.credits = Math.max(0, student.credits - creditsToRemove);
                 await student.save();
-                console.log('Student credits decreased');
+                console.log(`Student credits decreased: -${creditsToRemove} (Total: ${student.credits})`);
             }
         }
 
@@ -157,7 +200,7 @@ exports.updateHackathonStatus = async (req, res) => {
             const student = await Student.findById(hackathon.studentId);
             console.log('Sending hackathon status update email to:', student.email);
             const emailResult = await sendEmail(
-                emailTemplates.hackathonStatusUpdate(student.name, student.email, hackathon.hackathonTitle, status, rejectionReason)
+                emailTemplates.hackathonStatusUpdate(student.name, student.email, hackathon.hackathonTitle, status, rejectionReason, hackathon.eventType)
             );
 
             if (!emailResult.success) {
@@ -181,6 +224,19 @@ exports.getAcceptedHackathons = async (req, res) => {
     try {
         const hackathons = await Hackathon.find({ status: 'Accepted' })
             .populate('studentId', 'name registerNo department year')
+            .sort({ createdAt: -1 });
+        res.json(hackathons);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get All Hackathons (Admin)
+exports.getAllHackathons = async (req, res) => {
+    try {
+        const hackathons = await Hackathon.find()
+            .populate('studentId', 'name registerNo department year')
+            .populate('proctorId', 'name')
             .sort({ createdAt: -1 });
         res.json(hackathons);
     } catch (error) {

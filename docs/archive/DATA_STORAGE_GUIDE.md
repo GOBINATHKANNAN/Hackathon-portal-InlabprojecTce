@@ -1,4 +1,4 @@
-# 📊 Data Storage Guide - TCE CSBS Hackathon Portal
+#     Data Storage Guide - TCE CSBS Hackathon Portal
 
 ## Where is Data Stored?
 
@@ -207,11 +207,11 @@ http://localhost:5000/uploads/filename.pdf
    - View all documents
 
 **Features:**
-- ✅ Visual interface
-- ✅ Search and filter
-- ✅ Edit documents
-- ✅ Export data
-- ✅ View relationships
+-   Visual interface
+-   Search and filter
+-   Edit documents
+-   Export data
+-   View relationships
 
 ---
 
@@ -260,12 +260,12 @@ db.students.find({}, { name: 1, email: 1, registerNo: 1 })
    - **Upcoming Hackathons:** Manage upcoming events
 
 **What you can see:**
-- ✅ Total students
-- ✅ Total hackathons
-- ✅ Pending/Accepted/Declined counts
-- ✅ Student list with details
-- ✅ Hackathon submissions
-- ✅ Export to CSV
+-   Total students
+-   Total hackathons
+-   Pending/Accepted/Declined counts
+-   Student list with details
+-   Hackathon submissions
+-   Export to CSV
 
 ---
 
@@ -286,7 +286,7 @@ db.students.find({}, { name: 1, email: 1, registerNo: 1 })
 
 ---
 
-## 📊 Common Queries
+##     Common Queries
 
 ### View All Students with Passwords (Encrypted)
 ```javascript

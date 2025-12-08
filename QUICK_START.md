@@ -37,7 +37,7 @@ You need to navigate to the Student Dashboard after logging in.
 ❌ Not clicking "Dashboard" after login
 ❌ Using wrong credentials
 
-✅ Login → Click "Dashboard" → See the form!
+  Login → Click "Dashboard" → See the form!
 
 ## If Form is Still Not Visible:
 
