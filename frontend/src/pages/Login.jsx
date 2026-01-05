@@ -209,7 +209,6 @@ const Login = () => {
                                         setError('Google Sign-In was unsuccessful. Please try again.');
                                     }}
                                     useOneTap
-                                    width="100%"
                                 />
                             </div>
 

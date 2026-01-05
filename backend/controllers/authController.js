@@ -4,6 +4,10 @@ const Admin = require('../models/Admin');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { sendEmail, emailTemplates } = require('../services/emailService');
+const { OAuth2Client } = require('google-auth-library');
+const Joi = require('joi');
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (id, role, registerNo = null) => {
     const payload = { id, role };
@@ -12,22 +16,35 @@ const generateToken = (id, role, registerNo = null) => {
 };
 
 // Student Auth
+const studentRegisterSchema = Joi.object({
+    name: Joi.string().min(3).required(),
+    email: Joi.string().email().pattern(/@student\.tce\.edu$/).required().messages({
+        'string.pattern.base': 'Only @student.tce.edu emails are allowed.'
+    }),
+    password: Joi.string().min(6).required(),
+    registerNo: Joi.string().required(),
+    department: Joi.string().required(),
+    year: Joi.string().valid('1st', '2nd', '3rd', '4th').required()
+});
+
 exports.registerStudent = async (req, res) => {
     try {
-        const { name, email, password, registerNo, department, year } = req.body;
-
-        if (!email.endsWith('@student.tce.edu')) {
-            return res.status(400).json({ message: 'Only @student.tce.edu emails are allowed.' });
+        // Validate input
+        const { error } = studentRegisterSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
         }
+
+        const { name, email, password, registerNo, department, year } = req.body;
 
         const student = await Student.create({ name, email, password, registerNo, department, year });
 
         // Send Welcome Email
         console.log('Sending welcome email to:', email);
-        const emailResult = await sendEmail(emailTemplates.welcome(name, email));
-
-        if (!emailResult.success) {
-            console.error('Welcome email failed but continuing registration');
+        try {
+            await sendEmail(emailTemplates.welcome(name, email));
+        } catch (emailErr) {
+            console.error('Welcome email failed but continuing registration', emailErr);
         }
 
         res.status(201).json({ message: 'Student registered successfully' });
@@ -257,15 +274,19 @@ exports.googleLogin = async (req, res) => {
             return res.status(400).json({ message: 'Google credential is required' });
         }
 
-        // Decode the Google JWT token (in production, verify with Google's API)
-        const base64Url = credential.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = Buffer.from(base64, 'base64').toString('utf-8');
+        let payload;
+        try {
+            const ticket = await client.verifyIdToken({
+                idToken: credential,
+                audience: process.env.GOOGLE_CLIENT_ID
+            });
+            payload = ticket.getPayload();
+        } catch (verifyError) {
+            console.error('Google Token Verification Failed:', verifyError);
+            return res.status(401).json({ message: 'Invalid Google Token' });
+        }
 
-        const googleUser = JSON.parse(jsonPayload);
-
-        // Extract user info from Google token
-        const { email, name, picture, email_verified } = googleUser;
+        const { email, name, picture, email_verified, sub: googleId } = payload;
 
         if (!email_verified) {
             return res.status(400).json({ message: 'Please use a verified Google account' });
@@ -275,7 +296,6 @@ exports.googleLogin = async (req, res) => {
         let Model;
         if (role === 'student') {
             Model = Student;
-            // Check if email is from allowed domain for students
             if (!email.endsWith('@student.tce.edu')) {
                 return res.status(400).json({ message: 'Students must use @student.tce.edu email' });
             }
@@ -293,29 +313,25 @@ exports.googleLogin = async (req, res) => {
         if (!user) {
             // Create new user for Google sign-in
             if (role === 'student') {
-                // For students, we need additional info
-                // Generate a temporary register number
                 const tempRegNo = `GOOGLE${Date.now().toString().slice(-6)}`;
-
                 user = await Student.create({
                     name,
                     email,
-                    password: Math.random().toString(36).slice(-12), // Random password (won't be used)
+                    password: Math.random().toString(36).slice(-12),
                     registerNo: tempRegNo,
-                    department: 'CSBS', // Default department
-                    year: '1st', // Default year
-                    googleId: googleUser.sub,
-                    profilePicture: picture
+                    department: 'CSBS',
+                    year: '1st',
+                    googleId: googleId,
+                    profilePicture: picture,
+                    verified: true // Google users are verified implicitly
                 });
 
-                // Send welcome email
                 try {
                     await sendEmail(emailTemplates.welcome(name, email));
                 } catch (emailError) {
                     console.error('Welcome email failed:', emailError);
                 }
             } else {
-                // For proctor/admin, they must be pre-created
                 return res.status(403).json({
                     message: `${role.charAt(0).toUpperCase() + role.slice(1)} account not found. Please contact administrator.`
                 });

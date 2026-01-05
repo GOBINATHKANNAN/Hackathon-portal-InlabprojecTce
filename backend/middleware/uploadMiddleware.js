@@ -7,9 +7,15 @@ const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         let uploadPath = 'uploads/';
 
-        // If user is a student and has a register number (from auth middleware)
-        if (req.user && req.user.role === 'student' && req.user.registerNo) {
-            uploadPath = `uploads/students/${req.user.registerNo}/`;
+        // If user is a student (req.user is now fully populated from authMiddleware)
+        if (req.query.teamName && req.user && req.user.role === 'student') {
+            const teamName = req.query.teamName.replace(/[^a-zA-Z0-9]/g, '_');
+            const studentName = req.user.name ? req.user.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Unknown';
+            uploadPath = `uploads/teams/${teamName}/${studentName}/`;
+        } else if (req.user && req.user.role === 'student') {
+            const safeName = req.user.name ? req.user.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') : 'Unknown';
+            const regNo = req.user.registerNo || 'NoReg';
+            uploadPath = `uploads/students/${safeName}_${regNo}/`;
         } else if (file.fieldname === 'poster') {
             uploadPath = 'uploads/admin/';
         } else {
@@ -17,7 +23,9 @@ const storage = multer.diskStorage({
         }
 
         // Create directory if it doesn't exist
+        console.log('Final Calculated Upload Path:', uploadPath);
         if (!fs.existsSync(uploadPath)) {
+            console.log('Path does not exist, creating:', uploadPath);
             fs.mkdirSync(uploadPath, { recursive: true });
         }
 

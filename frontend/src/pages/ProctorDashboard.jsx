@@ -8,6 +8,7 @@ const ProctorDashboard = () => {
     const [viewMode, setViewMode] = useState('mine'); // 'mine' or 'all'
     const [hackathons, setHackathons] = useState([]);
     const [participationApprovals, setParticipationApprovals] = useState([]);
+    const [teamApprovals, setTeamApprovals] = useState([]);
     const [activeSection, setActiveSection] = useState('participation');
 
     // Pagination state
@@ -59,8 +60,22 @@ const ProctorDashboard = () => {
     useEffect(() => {
         if (activeSection === 'radar') {
             fetchRadarData();
+        } else if (activeSection === 'teams') {
+            fetchTeamApprovals();
         }
     }, [activeSection]);
+
+    const fetchTeamApprovals = async () => {
+        try {
+            setLoading(true);
+            const res = await API.get('/teams/proctor/list');
+            setTeamApprovals(res.data);
+        } catch (err) {
+            console.error('Error fetching team approvals:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Error and success handling
     const [error, setError] = useState('');
@@ -328,6 +343,22 @@ const ProctorDashboard = () => {
         }
     };
 
+    const handleTeamApproval = async (teamId, status, reason = '') => {
+        try {
+            await API.put(`/teams/proctor/status/${teamId}`, {
+                status,
+                rejectionReason: reason
+            });
+
+            // Refresh team approvals
+            await fetchTeamApprovals();
+
+            alert(`Team request ${status} successfully!`);
+        } catch (err) {
+            alert('Update failed: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     // if (loading) return <div className="dashboard-container"><p>Loading assignments...</p></div>;
 
     return (
@@ -375,6 +406,23 @@ const ProctorDashboard = () => {
                     }}
                 >
                     Certification Verification
+                </button>
+                <button
+                    onClick={() => setActiveSection('teams')}
+                    style={{
+                        padding: '12px 24px',
+                        background: activeSection === 'teams' ? '#fff' : '#f9f9f9',
+                        color: activeSection === 'teams' ? '#830000' : '#666',
+                        border: 'none',
+                        borderBottom: activeSection === 'teams' ? '4px solid #830000' : '4px solid transparent',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        transition: 'all 0.2s',
+                        outline: 'none'
+                    }}
+                >
+                    Team Matching
                 </button>
                 <button
                     onClick={() => setActiveSection('radar')}
@@ -597,6 +645,103 @@ const ProctorDashboard = () => {
                                                     </button>
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {activeSection === 'teams' && (
+                <div>
+                    <h3 style={{ color: '#830000', marginBottom: '20px', borderLeft: '4px solid #830000', paddingLeft: '10px' }}>Team Approval Requests</h3>
+                    {loading ? (
+                        <p>Loading teams...</p>
+                    ) : teamApprovals.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '4px', border: '1px dashed #ccc', color: '#666' }}>
+                            <p>No team matching requests pending approval.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gap: '20px' }}>
+                            {teamApprovals.map(team => (
+                                <div key={team._id} style={{
+                                    background: 'white',
+                                    padding: '20px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #eee',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                        <div>
+                                            <h4 style={{ color: '#830000', margin: '0 0 10px 0' }}>
+                                                Team: {team.teamName}
+                                            </h4>
+                                            <p style={{ margin: '5px 0', color: '#666', fontSize: '0.9rem' }}>
+                                                <strong>Hackathon:</strong> {team.upcomingHackathonId?.title}
+                                            </p>
+                                            <p style={{ margin: '5px 0', color: '#666', fontSize: '0.9rem' }}>
+                                                <strong>Submitted:</strong> {team.submittedAt ? new Date(team.submittedAt).toLocaleDateString() : 'N/A'}
+                                            </p>
+                                        </div>
+                                        <span className={`status-badge ${team.status.toLowerCase()}`} style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '20px',
+                                            fontSize: '0.85rem',
+                                            fontWeight: '600',
+                                            background: team.status === 'Approved' ? '#e8f5e9' : team.status === 'Declined' ? '#ffebee' : '#fff3e0',
+                                            color: team.status === 'Approved' ? '#2e7d32' : team.status === 'Declined' ? '#c62828' : '#ef6c00',
+                                            border: `1px solid ${team.status === 'Approved' ? '#a5d6a7' : team.status === 'Declined' ? '#ef9a9a' : '#ffe0b2'}`
+                                        }}>
+                                            {team.status}
+                                        </span>
+                                    </div>
+
+                                    <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '6px', marginBottom: '15px' }}>
+                                        <h5 style={{ margin: '0 0 10px 0', color: '#333' }}>Team Members ({team.members.length})</h5>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+                                            {team.members.map((member, i) => (
+                                                <div key={i} style={{ fontSize: '0.85rem', border: '1px solid #eee', padding: '10px', borderRadius: '4px', background: 'white' }}>
+                                                    <span style={{ fontWeight: '600' }}>{member.name}</span>
+                                                    <br />
+                                                    <span style={{ color: '#666' }}>{member.registerNo}</span>
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        {member.certificatePath ? (
+                                                            <a
+                                                                href={`http://localhost:5000/${member.certificatePath.replace(/\\/g, '/')}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                style={{ color: '#1a73e8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.75rem' }}
+                                                            >
+                                                                📄 View Certificate
+                                                            </a>
+                                                        ) : (
+                                                            <span style={{ color: '#999', fontSize: '0.75rem italic' }}>No certificate</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {team.status === 'Pending Approval' && (
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button
+                                                onClick={() => handleTeamApproval(team._id, 'Approved')}
+                                                style={{ background: '#4caf50', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                            >
+                                                Approve Team
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const reason = prompt('Enter rejection reason:');
+                                                    if (reason) handleTeamApproval(team._id, 'Declined', reason);
+                                                }}
+                                                style={{ background: '#d32f2f', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                            >
+                                                Decline
+                                            </button>
                                         </div>
                                     )}
                                 </div>

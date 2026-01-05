@@ -159,25 +159,52 @@ const Home = () => {
                                     </p>
 
                                     {user && user.role === 'student' && (
-                                        <button
-                                            onClick={() => navigate(`/enroll/${hackathon._id}`)}
-                                            style={{
-                                                background: '#830000',
-                                                color: 'white',
-                                                border: 'none',
-                                                padding: '12px 24px',
-                                                borderRadius: '6px',
-                                                cursor: 'pointer',
-                                                fontSize: '1rem',
-                                                fontWeight: '600',
-                                                width: '100%',
-                                                transition: 'background 0.3s'
-                                            }}
-                                            onMouseEnter={(e) => e.target.style.background = '#a52a2a'}
-                                            onMouseLeave={(e) => e.target.style.background = '#830000'}
-                                        >
-                                            Enroll Now
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button
+                                                onClick={() => navigate(`/enroll/${hackathon._id}`)}
+                                                style={{
+                                                    background: '#830000',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '12px 15px',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem',
+                                                    fontWeight: '600',
+                                                    flex: 1,
+                                                    transition: 'background 0.3s'
+                                                }}
+                                                onMouseEnter={(e) => e.target.style.background = '#a52a2a'}
+                                                onMouseLeave={(e) => e.target.style.background = '#830000'}
+                                            >
+                                                Enroll Individual
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/team-matching/${hackathon._id}`)}
+                                                style={{
+                                                    background: 'white',
+                                                    color: '#830000',
+                                                    border: '2px solid #830000',
+                                                    padding: '12px 15px',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem',
+                                                    fontWeight: '600',
+                                                    flex: 1,
+                                                    transition: 'all 0.3s'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.background = '#830000';
+                                                    e.target.style.color = 'white';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.background = 'white';
+                                                    e.target.style.color = '#830000';
+                                                }}
+                                            >
+                                                Team Matching
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </motion.div>
