@@ -111,11 +111,11 @@ const Home = () => {
                                 {/* Poster Image */}
                                 <div style={{ height: '200px', overflow: 'hidden', background: '#f5f5f5', cursor: 'pointer' }}
                                     onClick={() => setSelectedPoster({
-                                        url: `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`,
+                                        url: hackathon.posterPath ? `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}` : null,
                                         title: hackathon.title
                                     })}>
                                     <img
-                                        src={`http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`}
+                                        src={hackathon.posterPath ? `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}` : ''}
                                         alt={hackathon.title}
                                         style={{
                                             width: '100%',

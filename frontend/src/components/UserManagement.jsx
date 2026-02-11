@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import API from '../services/api';
 
 const UserManagement = ({
     students,
@@ -15,6 +16,56 @@ const UserManagement = ({
 }) => {
     const [activeUserTab, setActiveUserTab] = useState('students');
     const [selectedProctorFilter, setSelectedProctorFilter] = useState('');
+    const [uploadFile, setUploadFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadResult, setUploadResult] = useState(null);
+    const [creatingUser, setCreatingUser] = useState(null); // 'proctor'
+    const [createForm, setCreateForm] = useState({ name: '', email: '', department: '', password: '' });
+
+    const handleFileChange = (e) => {
+        setUploadFile(e.target.files[0]);
+        setUploadResult(null);
+    };
+
+    const handleCreateUser = async () => {
+        try {
+            await API.post('/users/proctors', createForm);
+            alert('Proctor created successfully');
+            setCreatingUser(null);
+            setCreateForm({ name: '', email: '', department: '', password: '' });
+            // Ideally notify parent to refresh
+        } catch (error) {
+            alert('Failed to create proctor: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    const handleCreateFormChange = (field, value) => {
+        setCreateForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleBulkUpload = async (type) => {
+        if (!uploadFile) return alert('Please select a file first');
+
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+
+        setUploading(true);
+        try {
+            const endpoint = `/users/${type}s/bulk-upload`;
+            const res = await API.post(endpoint, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setUploadResult(res.data);
+            alert('Bulk upload processed!');
+            // Refresh data if possible, though exact refresh might require parent re-fetch
+            // Ideally call a prop function like onRefresh()
+        } catch (error) {
+            alert('Upload failed: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setUploading(false);
+            setUploadFile(null);
+        }
+    };
 
     const handleFormChange = (field, value) => {
         setEditForm(prev => ({ ...prev, [field]: value }));
@@ -380,17 +431,157 @@ const UserManagement = ({
                 </div>
             )}
 
+            {/* Bulk Upload Section */}
+            {(activeUserTab === 'students' || activeUserTab === 'proctors') && (
+                <div style={{ background: '#e3f2fd', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px dashed #2196f3' }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#1565c0' }}>Bulk Upload {activeUserTab.charAt(0).toUpperCase() + activeUserTab.slice(1)}</h4>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <input
+                            type="file"
+                            accept=".xlsx, .xls"
+                            onChange={handleFileChange}
+                            style={{ padding: '8px', background: 'white', borderRadius: '4px' }}
+                        />
+                        <button
+                            onClick={() => handleBulkUpload(activeUserTab.slice(0, -1))} // removed 's'
+                            disabled={!uploadFile || uploading}
+                            style={{
+                                padding: '8px 16px',
+                                background: uploading ? '#ccc' : '#1565c0',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: uploading ? 'not-allowed' : 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            {uploading ? 'Processing...' : 'Upload Excel'}
+                        </button>
+                    </div>
+                    {uploadResult && (
+                        <div style={{ marginTop: '10px', fontSize: '0.9rem' }}>
+                            <p style={{ margin: '5px 0', color: 'green' }}>✓ Success: {uploadResult.summary.success}</p>
+                            <p style={{ margin: '5px 0', color: 'red' }}>✗ Failed: {uploadResult.summary.failed}</p>
+                            {uploadResult.summary.errors.length > 0 && (
+                                <details>
+                                    <summary style={{ cursor: 'pointer', color: '#d32f2f' }}>View Errors</summary>
+                                    <ul style={{ maxHeight: '100px', overflowY: 'auto', background: 'white', padding: '5px 20px', borderRadius: '4px' }}>
+                                        {uploadResult.summary.errors.map((err, idx) => (
+                                            <li key={idx}>Row {JSON.stringify(err.row)}: {err.error}</li>
+                                        ))}
+                                    </ul>
+                                </details>
+                            )}
+                        </div>
+                    )}
+                    <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '5px' }}>
+                        Required Columns: {activeUserTab === 'students' ? 'Name, Email, RegisterNo, Department, Year, Password' : 'Name, Email, Department, Password'}
+                    </p>
+                </div>
+            )}
+
             {/* User Tables */}
             <div className="list-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                 <h3 style={{ marginBottom: '20px' }}>
                     {activeUserTab.charAt(0).toUpperCase() + activeUserTab.slice(1)} Management
                 </h3>
 
+                {activeUserTab === 'proctors' && (
+                    <div style={{ marginBottom: '15px', textAlign: 'right' }}>
+                        <button
+                            onClick={() => setCreatingUser('proctor')}
+                            style={{
+                                padding: '8px 16px',
+                                background: '#2e7d32',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            + Add New Proctor
+                        </button>
+                    </div>
+                )}
+
                 {renderUserTable(getFilteredUsers(), activeUserTab.slice(0, -1))}
             </div>
 
             {/* Edit Form Modal */}
             {renderEditForm()}
+
+            {/* Create User Modal */}
+            {creatingUser === 'proctor' && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{ background: 'white', padding: '30px', borderRadius: '8px', width: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <h3 style={{ margin: '0 0 20px 0', color: '#830000' }}>Add New Proctor</h3>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Name:</label>
+                            <input
+                                type="text"
+                                value={createForm.name}
+                                onChange={(e) => handleCreateFormChange('name', e.target.value)}
+                                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email:</label>
+                            <input
+                                type="email"
+                                value={createForm.email}
+                                onChange={(e) => handleCreateFormChange('email', e.target.value)}
+                                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Department:</label>
+                            <select
+                                value={createForm.department}
+                                onChange={(e) => handleCreateFormChange('department', e.target.value)}
+                                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            >
+                                <option value="">Select Department</option>
+                                <option value="CSBS">CSBS</option>
+                                <option value="CSE">CSE</option>
+                                <option value="ECE">ECE</option>
+                                <option value="EEE">EEE</option>
+                                <option value="MECH">MECH</option>
+                                <option value="IT">IT</option>
+                                <option value="CIVIL">CIVIL</option>
+                            </select>
+                        </div>
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password:</label>
+                            <input
+                                type="password"
+                                value={createForm.password}
+                                onChange={(e) => handleCreateFormChange('password', e.target.value)}
+                                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                            <button
+                                onClick={() => setCreatingUser(null)}
+                                style={{ background: '#666', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCreateUser}
+                                style={{ background: '#830000', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                                Create Proctor
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

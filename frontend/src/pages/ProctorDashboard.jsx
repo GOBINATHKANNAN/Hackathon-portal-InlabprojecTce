@@ -170,7 +170,14 @@ const ProctorDashboard = () => {
         if (selectAll) {
             setSelectedHackathons([]);
         } else {
-            setSelectedHackathons(hackathons.filter(h => h.status === 'Pending').map(h => h._id));
+            // Only select pending hackathons that are ASSIGNED to the current user
+            const myPendingHackathons = hackathons.filter(h => {
+                const isMyStudent = h.studentId?.proctorId?._id === user?._id || h.studentId?.proctorId === user?._id;
+                const isMyHackathonAssignment = h.proctorId?._id === user?._id || h.proctorId === user?._id;
+                return h.status === 'Pending' && (isMyStudent || isMyHackathonAssignment);
+            });
+
+            setSelectedHackathons(myPendingHackathons.map(h => h._id));
         }
         setSelectAll(!selectAll);
     };
@@ -321,7 +328,7 @@ const ProctorDashboard = () => {
             await API.put(`/hackathons/${id}/status`, { status, rejectionReason });
             setRejectionReason('');
             setSelectedId(null);
-            fetchAssignedHackathons();
+            fetchAssignedHackathonsPaginated();
         } catch (err) {
             alert('Update failed: ' + (err.response?.data?.message || err.message));
         }
@@ -1067,16 +1074,18 @@ const ProctorDashboard = () => {
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         position: 'relative'
                                     }}>
-                                        {/* Checkbox for Pending items */}
+                                        {/* Checkbox for Pending items - Only show if assigned to ME */}
                                         {hack.status === 'Pending' && (
-                                            <div style={{ position: 'absolute', top: '20px', left: '20px' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedHackathons.includes(hack._id)}
-                                                    onChange={() => handleSelectHackathon(hack._id)}
-                                                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                                                />
-                                            </div>
+                                            (hack.studentId?.proctorId?._id === user?._id || hack.studentId?.proctorId === user?._id || hack.proctorId?._id === user?._id || hack.proctorId === user?._id) ? (
+                                                <div style={{ position: 'absolute', top: '20px', left: '20px' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedHackathons.includes(hack._id)}
+                                                        onChange={() => handleSelectHackathon(hack._id)}
+                                                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                                    />
+                                                </div>
+                                            ) : null
                                         )}
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', marginLeft: hack.status === 'Pending' ? '40px' : '0' }}>
@@ -1163,8 +1172,8 @@ const ProctorDashboard = () => {
 
                                         {hack.status === 'Pending' && (
                                             <div className="action-buttons" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                                {/* Security Check: Use optional chaining to safely check ownership */}
-                                                {(hack.studentId?.proctorId?._id === user?._id || hack.studentId?.proctorId === user?._id) ? (
+                                                {/* Allow approval only if it's the assigned proctor */}
+                                                {(hack.studentId?.proctorId?._id === user?._id || hack.studentId?.proctorId === user?._id || hack.proctorId?._id === user?._id || hack.proctorId === user?._id) ? (
                                                     <>
                                                         <button
                                                             onClick={() => handleStatusUpdate(hack._id, 'Accepted')}
@@ -1192,7 +1201,7 @@ const ProctorDashboard = () => {
                                                         display: 'inline-block',
                                                         fontWeight: '600'
                                                     }}>
-                                                        Read Only: Assigned to {hack.studentId?.proctorId?.name || 'Another Proctor'}
+                                                        Assigned to {hack.studentId?.proctorId?.name || hack.proctorId?.name || 'Another Proctor'}
                                                     </span>
                                                 )}
                                             </div>

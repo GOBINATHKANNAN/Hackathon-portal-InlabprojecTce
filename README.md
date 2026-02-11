@@ -140,10 +140,10 @@ run_project.bat
 
 ## 👤 Default Accounts
 
-| Role | Email | Password |
-|------|-------|----------|
-| **Admin** | admin@portal.com | adminpassword |
-| **Proctor** | proctor@portal.com | proctorpassword |
+| Role        | Email                   | Password        |
+|-------------|-------------------------|-----------------|
+| **Admin**   | admin@portal.com        | adminpassword   |
+| **Proctor** | proctor@portal.com      | proctorpassword |
 | **Student** | student@student.tce.edu | studentpassword |
 
 ## 📧 Email Configuration

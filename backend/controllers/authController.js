@@ -37,7 +37,19 @@ exports.registerStudent = async (req, res) => {
 
         const { name, email, password, registerNo, department, year } = req.body;
 
-        const student = await Student.create({ name, email, password, registerNo, department, year });
+        // Find a proctor in the same department
+        const proctor = await Proctor.findOne({ department });
+        let proctorId = null;
+        if (proctor) {
+            proctorId = proctor._id;
+        }
+
+        const student = await Student.create({ name, email, password, registerNo, department, year, proctorId });
+
+        if (proctor) {
+            proctor.assignedStudents.push(student._id);
+            await proctor.save();
+        }
 
         // Send Welcome Email
         console.log('Sending welcome email to:', email);
@@ -325,6 +337,15 @@ exports.googleLogin = async (req, res) => {
                     profilePicture: picture,
                     verified: true // Google users are verified implicitly
                 });
+
+                // Assign Proctor for Google Login students (Defaulting to CSBS)
+                const proctor = await Proctor.findOne({ department: 'CSBS' });
+                if (proctor) {
+                    user.proctorId = proctor._id;
+                    await user.save();
+                    proctor.assignedStudents.push(user._id);
+                    await proctor.save();
+                }
 
                 try {
                     await sendEmail(emailTemplates.welcome(name, email));
