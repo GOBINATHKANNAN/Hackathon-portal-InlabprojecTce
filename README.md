@@ -138,6 +138,16 @@ run_project.bat
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:5000
 
+## 🚀 Deployment
+
+For production deployment instructions, please see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+## 🛠️ Troubleshooting
+
+- **Missing Uploads Folder**: The server automatically creates necessary upload directories on startup. If you see errors related to file paths, simply restart the backend server.
+- **Port Conflicts**: If port 5000 is occupied, you can change the `PORT` in `backend/.env`.
+- **MongoDB Connection**: Ensure your local MongoDB service is running before starting the backend.
+
 ## 👤 Default Accounts
 
 | Role        | Email                   | Password        |

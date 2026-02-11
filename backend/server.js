@@ -1,13 +1,29 @@
 const express = require('express');
+console.log('Loaded express');
 const mongoose = require('mongoose');
+console.log('Loaded mongoose');
 const cors = require('cors');
+console.log('Loaded cors');
 const dotenv = require('dotenv');
+console.log('Loaded dotenv');
 const path = require('path');
+console.log('Loaded path');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Ensure uploads directory exists
+const fs = require('fs');
+const uploadDirs = ['uploads', 'uploads/admin', 'uploads/others', 'uploads/students', 'uploads/teams'];
+uploadDirs.forEach(dir => {
+    const fullPath = path.join(__dirname, dir);
+    if (!fs.existsSync(fullPath)) {
+        fs.mkdirSync(fullPath, { recursive: true });
+        console.log(`Created directory: ${dir}`);
+    }
+});
 
 // Middleware
 app.use(cors());
@@ -52,7 +68,11 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+server.on('error', (err) => {
+    console.error('SERVER ERROR:', err);
 });
