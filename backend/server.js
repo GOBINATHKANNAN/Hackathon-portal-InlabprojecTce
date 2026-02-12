@@ -26,7 +26,13 @@ uploadDirs.forEach(dir => {
 });
 
 // Middleware
-app.use(cors());
+// CORS Configuration - Allow all origins for now (restrict in production)
+app.use(cors({
+    origin: true, // Allow all origins (change to specific domains in production)
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

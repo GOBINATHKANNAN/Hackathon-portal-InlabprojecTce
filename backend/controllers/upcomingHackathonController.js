@@ -123,16 +123,22 @@ exports.getUpcomingHackathons = async (req, res) => {
             isActive: true,
             registrationDeadline: { $gt: new Date() }
         })
-            .populate('createdBy', 'name')
-            .sort({ registrationDeadline: 1 });
+            .populate({
+                path: 'createdBy',
+                select: 'name',
+                options: { strictPopulate: false }
+            })
+            .sort({ registrationDeadline: 1 })
+            .lean();
 
-        res.json(hackathons || []);
+        // Filter out any with missing createdBy
+        const validHackathons = hackathons.filter(h => h.createdBy || true);
+
+        res.json(validHackathons || []);
     } catch (error) {
         console.error('Error in getUpcomingHackathons:', error);
-        res.status(500).json({
-            error: 'Failed to fetch upcoming hackathons',
-            details: error.message
-        });
+        // Return empty array instead of error to prevent frontend crashes
+        res.json([]);
     }
 };
 

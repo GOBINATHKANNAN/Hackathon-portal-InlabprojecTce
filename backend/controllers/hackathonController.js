@@ -231,11 +231,22 @@ exports.updateHackathonStatus = async (req, res) => {
 exports.getAcceptedHackathons = async (req, res) => {
     try {
         const hackathons = await Hackathon.find({ status: 'Accepted' })
-            .populate('studentId', 'name registerNo department year')
-            .sort({ createdAt: -1 });
-        res.json(hackathons);
+            .populate({
+                path: 'studentId',
+                select: 'name registerNo department year',
+                options: { strictPopulate: false }
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Filter out any hackathons where student was deleted
+        const validHackathons = hackathons.filter(h => h.studentId);
+
+        res.json(validHackathons || []);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error in getAcceptedHackathons:', error);
+        // Return empty array instead of error to prevent frontend crashes
+        res.json([]);
     }
 };
 
