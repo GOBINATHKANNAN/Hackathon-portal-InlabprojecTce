@@ -38,12 +38,11 @@ exports.bulkUpdateHackathonStatus = async (req, res) => {
             if (!student) return true; // Orphaned record, deny
 
             // Access granted if:
-            // 1. Student is directly assigned to this proctor
-            // 2. Student is in the same department (for 'All Students' view actions)
-            const isAssigned = student.proctorId && student.proctorId.toString() === req.user.id;
-            const isSameDept = student.department === currentProctor.department;
+            // 1. Student is directly assigned to this proctor OR Hackathon is assigned to this proctor
+            const isAssigned = (student.proctorId && student.proctorId.toString() === req.user.id) ||
+                (h.proctorId && h.proctorId.toString() === req.user.id);
 
-            return !(isAssigned || isSameDept);
+            return !isAssigned;
         });
 
         if (unauthorizedHackathons.length > 0) {
@@ -226,6 +225,7 @@ exports.getAssignedHackathonsPaginated = async (req, res) => {
                 select: 'name registerNo year department proctorId',
                 populate: { path: 'proctorId', select: 'name' }
             })
+            .populate('proctorId', 'name')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);

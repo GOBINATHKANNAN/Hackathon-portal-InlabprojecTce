@@ -144,7 +144,15 @@ exports.updateHackathonStatus = async (req, res) => {
             return res.status(404).json({ message: 'Student record not found' });
         }
 
-        if (!student.proctorId || student.proctorId.toString() !== req.user.id.toString()) {
+        // Check verification against student's assigned proctor OR hackathon-specific proctor
+        // This allows for cases where a student might have a general proctor, but this specific hackathon
+        // was assigned to/picked up by someone else (if your logic supports that).
+        // If strictly checking student's profile proctor:
+
+        const isAssigned = (student.proctorId && student.proctorId.toString() === req.user.id.toString()) ||
+            (hackathon.proctorId && hackathon.proctorId.toString() === req.user.id.toString());
+
+        if (!isAssigned) {
             console.log('Authorization failed - proctor mismatch');
             return res.status(403).json({ message: 'Not authorized: You are not the assigned proctor for this student.' });
         }

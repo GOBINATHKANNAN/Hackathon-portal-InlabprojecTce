@@ -11,7 +11,10 @@ const {
     deleteStudent,
     deleteProctor,
     deleteAdmin,
-    getUserStats
+    getUserStats,
+    createProctor,
+    bulkUploadStudents,
+    bulkUploadProctors
 } = require('../controllers/userManagementController');
 
 // Admin-only middleware
@@ -28,6 +31,9 @@ router.get('/proctors', protect, authorize('admin'), getAllProctors);
 router.get('/admins', protect, authorize('admin'), getAllAdmins);
 router.get('/stats', protect, authorize('admin'), getUserStats);
 
+// Create proctor
+router.post('/proctors', protect, authorize('admin'), createProctor);
+
 // Update users
 router.put('/students/:id', protect, authorize('admin'), updateStudent);
 router.put('/proctors/:id', protect, authorize('admin'), updateProctor);
@@ -37,5 +43,11 @@ router.put('/admins/:id', protect, authorize('admin'), updateAdmin);
 router.delete('/students/:id', protect, authorize('admin'), deleteStudent);
 router.delete('/proctors/:id', protect, authorize('admin'), deleteProctor);
 router.delete('/admins/:id', protect, authorize('admin'), deleteAdmin);
+
+// Bulk Upload
+const upload = require('../middleware/uploadMiddleware');
+
+router.post('/students/bulk-upload', protect, authorize('admin'), upload.single('file'), bulkUploadStudents);
+router.post('/proctors/bulk-upload', protect, authorize('admin'), upload.single('file'), bulkUploadProctors);
 
 module.exports = router;

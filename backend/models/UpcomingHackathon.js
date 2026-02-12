@@ -6,6 +6,11 @@ const upcomingHackathonSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    eventType: {
+        type: String,
+        enum: ['Hackathon', 'Conference', 'Workshop', 'Seminar', 'Other'],
+        default: 'Hackathon'
+    },
     organization: {
         type: String,
         required: true,
@@ -14,6 +19,22 @@ const upcomingHackathonSchema = new mongoose.Schema({
     description: {
         type: String,
         required: true
+    },
+    minCGPA: {
+        type: Number,
+        default: 0
+    },
+    minCredits: {
+        type: Number,
+        default: 0
+    },
+    allowedDepartments: {
+        type: [String],
+        default: []
+    },
+    eligibleYears: {
+        type: [String],
+        default: []
     },
     posterPath: {
         type: String,

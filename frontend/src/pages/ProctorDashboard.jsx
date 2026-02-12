@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useContext } from 'react';
 import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import './Dashboard.css';
+import getAssetUrl from '../services/assetHelper';
 
 const ProctorDashboard = () => {
     const { user } = useContext(AuthContext);
@@ -716,7 +717,7 @@ const ProctorDashboard = () => {
                                                     <div style={{ marginTop: '8px' }}>
                                                         {member.certificatePath ? (
                                                             <a
-                                                                href={`http://localhost:5000/${member.certificatePath.replace(/\\/g, '/')}`}
+                                                                href={getAssetUrl(member.certificatePath)}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 style={{ color: '#1a73e8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.75rem' }}
@@ -1152,7 +1153,7 @@ const ProctorDashboard = () => {
 
                                         <div className="file-links" style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
                                             {hack.attendanceStatus === 'Attended' && hack.certificateFilePath ? (
-                                                <a href={`http://localhost:5000/${hack.certificateFilePath}`} target="_blank" rel="noopener noreferrer" className="file-link" style={{
+                                                <a href={getAssetUrl(hack.certificateFilePath)} target="_blank" rel="noopener noreferrer" className="file-link" style={{
                                                     textDecoration: 'none',
                                                     color: '#0056b3',
                                                     fontWeight: '600',

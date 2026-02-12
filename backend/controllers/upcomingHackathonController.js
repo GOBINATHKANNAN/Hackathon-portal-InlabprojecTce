@@ -4,7 +4,6 @@ const Student = require('../models/Student');
 const ParticipationApproval = require('../models/ParticipationApproval');
 const Proctor = require('../models/Proctor');
 
-// Create Upcoming Hackathon (Admin only)
 exports.createUpcomingHackathon = async (req, res) => {
     try {
         console.log('=== CREATE UPCOMING HACKATHON ===');
@@ -12,7 +11,6 @@ exports.createUpcomingHackathon = async (req, res) => {
         console.log('Request files:', req.files);
         console.log('User:', req.user);
 
-        // Extract data from request
         const {
             title,
             organization,
@@ -21,10 +19,14 @@ exports.createUpcomingHackathon = async (req, res) => {
             hackathonDate,
             mode,
             location,
-            maxParticipants
+            maxParticipants,
+            eventType,
+            minCGPA,
+            minCredits,
+            allowedDepartments,
+            eligibleYears
         } = req.body;
 
-        // Get poster path
         let posterPath = null;
         if (req.files && req.files['poster'] && req.files['poster'][0]) {
             posterPath = req.files['poster'][0].path;
@@ -50,18 +52,23 @@ exports.createUpcomingHackathon = async (req, res) => {
             return res.status(400).json({ message: 'Hackathon date is required' });
         }
 
-        // Prepare hackathon data
+        // Preparation hackathon data
         const hackathonData = {
             title: title.trim(),
             organization: organization.trim(),
             description: description.trim(),
-            posterPath: posterPath,
+            posterPath: posterPath ? posterPath.replace(/\\/g, '/') : null, // Sanitize for web
             registrationDeadline: new Date(registrationDeadline),
             hackathonDate: new Date(hackathonDate),
             mode: mode || 'Online',
             location: location ? location.trim() : '',
             maxParticipants: maxParticipants ? parseInt(maxParticipants) : 100,
-            createdBy: req.user.id,
+            eventType: eventType || 'Hackathon',
+            minCGPA: minCGPA ? parseFloat(minCGPA) : 0,
+            minCredits: minCredits ? parseInt(minCredits) : 0,
+            allowedDepartments: allowedDepartments ? (typeof allowedDepartments === 'string' ? JSON.parse(allowedDepartments) : allowedDepartments) : [],
+            eligibleYears: eligibleYears ? (typeof eligibleYears === 'string' ? JSON.parse(eligibleYears) : eligibleYears) : [],
+            createdBy: req.user._id, // Use _id explicitly
             isActive: true
         };
 
@@ -148,7 +155,7 @@ exports.getUpcomingHackathonById = async (req, res) => {
 // Update Upcoming Hackathon (Admin only)
 exports.updateUpcomingHackathon = async (req, res) => {
     try {
-        const { title, organization, description, registrationDeadline, hackathonDate, mode, location, maxParticipants, isActive } = req.body;
+        const { title, organization, description, registrationDeadline, hackathonDate, mode, location, maxParticipants, isActive, eventType, minCGPA, minCredits, allowedDepartments, eligibleYears } = req.body;
 
         const updateData = {
             title: title?.trim(),
@@ -159,6 +166,11 @@ exports.updateUpcomingHackathon = async (req, res) => {
             mode,
             location: location?.trim(),
             maxParticipants: maxParticipants ? parseInt(maxParticipants) : undefined,
+            eventType,
+            minCGPA: minCGPA ? parseFloat(minCGPA) : undefined,
+            minCredits: minCredits ? parseInt(minCredits) : undefined,
+            allowedDepartments: allowedDepartments ? (typeof allowedDepartments === 'string' ? JSON.parse(allowedDepartments) : allowedDepartments) : undefined,
+            eligibleYears: eligibleYears ? (typeof eligibleYears === 'string' ? JSON.parse(eligibleYears) : eligibleYears) : undefined,
             isActive
         };
 

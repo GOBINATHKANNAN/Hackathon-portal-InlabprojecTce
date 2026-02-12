@@ -26,6 +26,19 @@ This guide provides instructions for deploying the Hackathon Management Portal t
     *   `JWT_SECRET`: (A long, random string)
     *   `EMAIL_USER`: (Your Gmail/SMTP email)
     *   `EMAIL_PASS`: (Your Gmail App Password)
+    *   `CLOUDINARY_CLOUD_NAME`: (Optional - From Cloudinary Dashboard)
+    *   `CLOUDINARY_API_KEY`: (Optional - From Cloudinary Dashboard)
+    *   `CLOUDINARY_API_SECRET`: (Optional - From Cloudinary Dashboard)
+
+## 3. Persistent File Storage (Cloudinary)
+
+By default, files are stored on the server's local disk. On Render's free tier, these files are deleted when the server restarts or sleeps.
+
+To keep files permanently:
+1. Create a free account at [Cloudinary](https://cloudinary.com/).
+2. Copy your Cloud Name, API Key, and API Secret from the Dashboard.
+3. Add them as environment variables in your Render/Railway backend settings.
+4. The application will automatically detect these and switch to cloud storage.
 
 ## 3. Frontend Deployment (Vercel / Netlify)
 

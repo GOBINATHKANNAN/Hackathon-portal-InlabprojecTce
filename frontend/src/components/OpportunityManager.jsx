@@ -9,6 +9,8 @@ const OpportunityManager = () => {
     const [scanResult, setScanResult] = useState(null);
     const [scanning, setScanning] = useState(false);
     const [selectedOpp, setSelectedOpp] = useState(null);
+    const [upcomingEvents, setUpcomingEvents] = useState([]);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -36,6 +38,10 @@ const OpportunityManager = () => {
         try {
             const res = await API.get('/opportunities');
             setOpportunities(res.data);
+
+            // Fetch upcoming events for import
+            const upcomingRes = await API.get('/upcoming-hackathons');
+            setUpcomingEvents(upcomingRes.data);
         } catch (error) {
             console.error(error);
         }
@@ -113,9 +119,26 @@ const OpportunityManager = () => {
             alert(`Invitations sent to ${candidateIds.length} students!`);
             setActiveTab('list');
             setScanResult(null);
+            setSelectedOpp(null);
         } catch (error) {
             alert('Failed to send invites');
         }
+    };
+
+    const handleImportEvent = (event) => {
+        setFormData({
+            title: event.title,
+            type: event.eventType || 'Hackathon',
+            organization: event.organization,
+            description: event.description || '',
+            minCGPA: event.minCGPA || 0,
+            minCredits: event.minCredits || 0,
+            allowedDepartments: event.allowedDepartments || [],
+            eligibleYears: event.eligibleYears || [],
+            deadline: event.registrationDeadline ? event.registrationDeadline.split('T')[0] : '',
+            eventDate: event.hackathonDate ? event.hackathonDate.split('T')[0] : ''
+        });
+        setShowImportModal(false);
     };
 
     return (
@@ -190,6 +213,25 @@ const OpportunityManager = () => {
 
             {activeTab === 'create' && (
                 <div className="form-card" style={cardStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            style={{
+                                padding: '8px 16px',
+                                background: '#1976d2',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}
+                        >
+                            📥 Import from Upcoming Events
+                        </button>
+                    </div>
+
                     <form onSubmit={handleSubmit}>
                         <div style={gridStyle}>
                             <div className="form-group">
@@ -339,6 +381,50 @@ const OpportunityManager = () => {
                         >
                             ✉️ Send {scanResult.count} Invites
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {showImportModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{ background: 'white', padding: '20px', borderRadius: '8px', width: '90%', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0 }}>Select Event to Import</h3>
+                            <button onClick={() => setShowImportModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+                        {upcomingEvents.length > 0 ? (
+                            <div style={{ display: 'grid', gap: '10px' }}>
+                                {upcomingEvents.map(event => (
+                                    <div
+                                        key={event._id}
+                                        onClick={() => handleImportEvent(event)}
+                                        style={{
+                                            padding: '15px',
+                                            border: '1px solid #eee',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s',
+                                            ':hover': { background: '#f5f5f5' } // inline hover doesn't work in React like this but basic style is fine
+                                        }}
+                                        className="import-card"
+                                    >
+                                        <div style={{ fontWeight: 'bold', color: '#830000' }}>{event.title}</div>
+                                        <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '5px' }}>
+                                            {event.organization} • {new Date(event.hackathonDate).toLocaleDateString()}
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', marginTop: '5px', display: 'flex', gap: '10px' }}>
+                                            <span style={{ background: '#e3f2fd', padding: '2px 6px', borderRadius: '4px' }}>{event.eventType || 'Hackathon'}</span>
+                                            {event.minCGPA > 0 && <span>Min CGPA: {event.minCGPA}</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p style={{ textAlign: 'center', color: '#666' }}>No upcoming events found to import.</p>
+                        )}
                     </div>
                 </div>
             )}

@@ -4,6 +4,7 @@ import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import './Home.css';
 import tceLogo from '../assets/tce_logo_contact.png';
+import getAssetUrl from '../services/assetHelper';
 
 import { motion } from 'framer-motion';
 
@@ -16,9 +17,15 @@ const Home = () => {
     const [upcomingLoading, setUpcomingLoading] = useState(true);
     const [selectedPoster, setSelectedPoster] = useState(null);
 
+    const [error, setError] = useState(null);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
+                setLoading(true);
+                setUpcomingLoading(true);
+                setError(null);
+
                 const [hackathonsRes, upcomingRes] = await Promise.all([
                     API.get('/hackathons/accepted'),
                     API.get('/upcoming-hackathons')
@@ -27,6 +34,7 @@ const Home = () => {
                 setUpcomingHackathons(upcomingRes.data);
             } catch (error) {
                 console.error('Error fetching data:', error);
+                setError('Failed to connect to the server. Please check your backend connection.');
             } finally {
                 setLoading(false);
                 setUpcomingLoading(false);
@@ -57,6 +65,18 @@ const Home = () => {
 
     return (
         <div className="home-container">
+            {error && (
+                <div style={{
+                    background: '#ffefef',
+                    color: '#d32f2f',
+                    padding: '15px',
+                    textAlign: 'center',
+                    borderBottom: '1px solid #ffcdd2',
+                    fontWeight: '600'
+                }}>
+                    ⚠️ {error}
+                </div>
+            )}
             <motion.header
                 className="hero-section"
                 initial={{ opacity: 0, y: -20 }}
@@ -111,11 +131,11 @@ const Home = () => {
                                 {/* Poster Image */}
                                 <div style={{ height: '200px', overflow: 'hidden', background: '#f5f5f5', cursor: 'pointer' }}
                                     onClick={() => setSelectedPoster({
-                                        url: hackathon.posterPath ? `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}` : null,
+                                        url: getAssetUrl(hackathon.posterPath),
                                         title: hackathon.title
                                     })}>
                                     <img
-                                        src={hackathon.posterPath ? `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}` : ''}
+                                        src={getAssetUrl(hackathon.posterPath)}
                                         alt={hackathon.title}
                                         style={{
                                             width: '100%',

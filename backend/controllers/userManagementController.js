@@ -1,6 +1,8 @@
 const Student = require('../models/Student');
 const Proctor = require('../models/Proctor');
 const Admin = require('../models/Admin');
+const xlsx = require('xlsx');
+const fs = require('fs');
 
 // Get all students
 exports.getAllStudents = async (req, res) => {
@@ -214,6 +216,186 @@ exports.getUserStats = async (req, res) => {
             total: studentCount + proctorCount + adminCount
         });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Create a new proctor
+exports.createProctor = async (req, res) => {
+    try {
+        const { name, email, password, department } = req.body;
+
+        if (!name || !email || !password || !department) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        const existingProctor = await Proctor.findOne({ email });
+        if (existingProctor) {
+            return res.status(400).json({ message: 'Proctor already exists with this email' });
+        }
+
+        const proctor = await Proctor.create({
+            name,
+            email,
+            password,
+            department
+        });
+
+        res.status(201).json({ message: 'Proctor created successfully', proctor });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Bulk Upload Students
+exports.bulkUploadStudents = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    try {
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet);
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
+
+        for (const row of data) {
+            try {
+                // Expected columns: Name, Email, RegisterNo, Department, Year, Password
+                const { Name, Email, RegisterNo, Department, Year, Password } = row;
+
+                if (!Name || !Email || !RegisterNo || !Department || !Year || !Password) {
+                    throw new Error('Missing required fields');
+                    /* 
+                     * Note: Ensure Excel columns match these names EXACTLY (case-sensitive) 
+                     * or adjust manually. Recommended template provided in UI.
+                     */
+                }
+
+                // Check for existing student
+                const existingStudent = await Student.findOne({
+                    $or: [{ email: Email }, { registerNo: RegisterNo }]
+                });
+
+                if (existingStudent) {
+                    throw new Error(`Student with Email ${Email} or RegisterNo ${RegisterNo} already exists`);
+                }
+
+                // Check and assign proctor
+                let proctorId = null;
+                const proctor = await Proctor.findOne({ department: Department });
+                if (proctor) {
+                    proctorId = proctor._id;
+                }
+
+                const newStudent = await Student.create({
+                    name: Name,
+                    email: Email,
+                    registerNo: RegisterNo,
+                    department: Department,
+                    year: Year,
+                    password: Password, // Will be hashed by pre-save hook
+                    proctorId: proctorId
+                });
+
+                if (proctor) {
+                    proctor.assignedStudents.push(newStudent._id);
+                    await proctor.save();
+                }
+
+                successCount++;
+            } catch (err) {
+                failCount++;
+                errors.push({ row: row, error: err.message });
+            }
+        }
+
+        // Cleanup uploaded file
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            message: 'Bulk upload processing completed',
+            summary: {
+                total: data.length,
+                success: successCount,
+                failed: failCount,
+                errors: errors
+            }
+        });
+
+    } catch (error) {
+        // Cleanup on error
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Bulk Upload Proctors
+exports.bulkUploadProctors = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    try {
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet);
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
+
+        for (const row of data) {
+            try {
+                // Expected columns: Name, Email, Department, Password
+                const { Name, Email, Department, Password } = row;
+
+                if (!Name || !Email || !Department || !Password) {
+                    throw new Error('Missing required fields');
+                }
+
+                const existingProctor = await Proctor.findOne({ email: Email });
+                if (existingProctor) {
+                    throw new Error(`Proctor with Email ${Email} already exists`);
+                }
+
+                await Proctor.create({
+                    name: Name,
+                    email: Email,
+                    department: Department,
+                    password: Password
+                });
+
+                successCount++;
+            } catch (err) {
+                failCount++;
+                errors.push({ row: row, error: err.message });
+            }
+        }
+
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            message: 'Bulk upload processing completed',
+            summary: {
+                total: data.length,
+                success: successCount,
+                failed: failCount,
+                errors: errors
+            }
+        });
+
+    } catch (error) {
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
         res.status(500).json({ error: error.message });
     }
 };

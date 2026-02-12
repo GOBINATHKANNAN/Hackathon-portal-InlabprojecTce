@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import './Navbar.css';
 
+import tceHeader from '../assets/tce_header.png';
+
 const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -25,7 +27,7 @@ const Navbar = () => {
         <nav className="navbar">
             <div className="navbar-container">
                 <Link to="/" className="navbar-logo" onClick={closeMenu}>
-                    <img src="/tce_header.png" alt="TCE Banner" className="logo-banner" />
+                    <img src={tceHeader} alt="TCE Banner" className="logo-banner" />
                 </Link>
 
                 <button className="hamburger" onClick={toggleMenu} aria-label="Toggle menu">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import getAssetUrl from '../services/assetHelper';
 import UserManagement from '../components/UserManagement';
 import OpportunityManager from '../components/OpportunityManager';
 import './Dashboard.css';
@@ -32,7 +33,12 @@ const AdminDashboard = () => {
         hackathonDate: '',
         mode: 'Online',
         location: '',
-        maxParticipants: 100
+        maxParticipants: 100,
+        eventType: 'Hackathon',
+        minCGPA: 0,
+        minCredits: 0,
+        allowedDepartments: [],
+        eligibleYears: []
     });
     const [posterFile, setPosterFile] = useState(null);
     const [submittingUpcoming, setSubmittingUpcoming] = useState(false);
@@ -165,9 +171,10 @@ const AdminDashboard = () => {
                 h.proctorId?.name || 'Unassigned'
             ];
         } else if (type === 'upcoming') {
-            headers = ['Title', 'Organization', 'Date', 'Registration Deadline', 'Mode', 'Location', 'Max Participants'];
+            headers = ['Title', 'Type', 'Organization', 'Date', 'Registration Deadline', 'Mode', 'Location', 'Max Participants'];
             processRow = (h) => [
                 h.title,
+                h.eventType || 'Hackathon',
                 h.organization,
                 new Date(h.hackathonDate).toLocaleDateString(),
                 new Date(h.registrationDeadline).toLocaleDateString(),
@@ -213,8 +220,21 @@ const AdminDashboard = () => {
     };
 
     // Upcoming Hackathon Functions
+    // Upcoming Event Functions
     const handleUpcomingFormChange = (e) => {
-        setUpcomingForm({ ...upcomingForm, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setUpcomingForm({ ...upcomingForm, [name]: value });
+    };
+
+    const handleMultiSelectChange = (e, field) => {
+        const { value, checked } = e.target;
+        let updatedList = [...upcomingForm[field]];
+        if (checked) {
+            updatedList.push(value);
+        } else {
+            updatedList = updatedList.filter(item => item !== value);
+        }
+        setUpcomingForm({ ...upcomingForm, [field]: updatedList });
     };
 
     const handlePosterChange = (e) => {
@@ -226,8 +246,13 @@ const AdminDashboard = () => {
         setSubmittingUpcoming(true);
 
         const formData = new FormData();
+
         Object.keys(upcomingForm).forEach(key => {
-            formData.append(key, upcomingForm[key]);
+            if (Array.isArray(upcomingForm[key])) {
+                formData.append(key, JSON.stringify(upcomingForm[key]));
+            } else {
+                formData.append(key, upcomingForm[key]);
+            }
         });
         if (posterFile) {
             formData.append('poster', posterFile);
@@ -237,7 +262,7 @@ const AdminDashboard = () => {
             await API.post('/upcoming-hackathons', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            alert('Upcoming Hackathon Created Successfully!');
+            alert('Upcoming Event Created Successfully!');
             setShowUpcomingForm(false);
             setUpcomingForm({
                 title: '',
@@ -247,21 +272,27 @@ const AdminDashboard = () => {
                 hackathonDate: '',
                 mode: 'Online',
                 location: '',
-                maxParticipants: 100
+                maxParticipants: 100,
+                eventType: 'Hackathon',
+                minCGPA: 0,
+                minCredits: 0,
+                allowedDepartments: [],
+                eligibleYears: []
             });
             setPosterFile(null);
             // Refresh list
             const res = await API.get('/upcoming-hackathons');
             setUpcomingHackathons(res.data);
         } catch (error) {
-            alert('Failed to create upcoming hackathon: ' + (error.response?.data?.message || error.message));
+            const errorMsg = error.response?.data?.errors ? error.response.data.errors.join(', ') : (error.response?.data?.message || error.message);
+            alert('Failed to create upcoming event: ' + errorMsg);
         } finally {
             setSubmittingUpcoming(false);
         }
     };
 
     const handleDeleteUpcomingHackathon = async (hackathonId) => {
-        if (!window.confirm('Are you sure you want to delete this upcoming hackathon?')) return;
+        if (!window.confirm('Are you sure you want to delete this upcoming event?')) return;
         try {
             await API.delete(`/upcoming-hackathons/${hackathonId}`);
             const res = await API.get('/upcoming-hackathons');
@@ -345,7 +376,7 @@ const AdminDashboard = () => {
                     { id: 'overview', label: '    Overview' },
                     { id: 'opportunities', label: '✨ Smart Opportunities' },
                     { id: 'hackathons', label: 'Hackathons' },
-                    { id: 'upcoming', label: 'Upcoming Hackathons' },
+                    { id: 'upcoming', label: 'Upcoming Events' },
                     { id: 'users', label: '  User Management' }
                 ].map(tab => (
                     <button
@@ -755,10 +786,10 @@ const AdminDashboard = () => {
             {activeTab === 'upcoming' && (
                 <div className="upcoming-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <h3>Upcoming Hackathons</h3>
+                        <h3>Upcoming Events</h3>
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button
-                                onClick={() => exportToCSV(upcomingHackathons, 'upcoming_hackathons.csv', 'upcoming')}
+                                onClick={() => exportToCSV(upcomingHackathons, 'upcoming_events.csv', 'upcoming')}
                                 style={{
                                     padding: '10px 20px',
                                     background: '#2e7d32',
@@ -797,6 +828,16 @@ const AdminDashboard = () => {
                                         <input type="text" name="title" value={upcomingForm.title} onChange={handleUpcomingFormChange} required />
                                     </div>
                                     <div className="form-group">
+                                        <label>Event Type</label>
+                                        <select name="eventType" value={upcomingForm.eventType} onChange={handleUpcomingFormChange}>
+                                            <option value="Hackathon">Hackathon</option>
+                                            <option value="Conference">Conference</option>
+                                            <option value="Workshop">Workshop</option>
+                                            <option value="Seminar">Seminar</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
                                         <label>Organization</label>
                                         <input type="text" name="organization" value={upcomingForm.organization} onChange={handleUpcomingFormChange} required />
                                     </div>
@@ -806,11 +847,25 @@ const AdminDashboard = () => {
                                     </div>
                                     <div className="form-group">
                                         <label>Registration Deadline</label>
-                                        <input type="date" name="registrationDeadline" value={upcomingForm.registrationDeadline} onChange={handleUpcomingFormChange} required />
+                                        <input
+                                            type="date"
+                                            name="registrationDeadline"
+                                            value={upcomingForm.registrationDeadline}
+                                            onChange={handleUpcomingFormChange}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            required
+                                        />
                                     </div>
                                     <div className="form-group">
-                                        <label>Hackathon Date</label>
-                                        <input type="date" name="hackathonDate" value={upcomingForm.hackathonDate} onChange={handleUpcomingFormChange} required />
+                                        <label>Event Date</label>
+                                        <input
+                                            type="date"
+                                            name="hackathonDate"
+                                            value={upcomingForm.hackathonDate}
+                                            onChange={handleUpcomingFormChange}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            required
+                                        />
                                     </div>
                                     <div className="form-group">
                                         <label>Mode</label>
@@ -827,13 +882,55 @@ const AdminDashboard = () => {
                                         <label>Max Participants</label>
                                         <input type="number" name="maxParticipants" value={upcomingForm.maxParticipants} onChange={handleUpcomingFormChange} required />
                                     </div>
+
+                                    <div className="form-group">
+                                        <label>Min CGPA</label>
+                                        <input type="number" step="0.1" name="minCGPA" value={upcomingForm.minCGPA} onChange={handleUpcomingFormChange} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Min Credits</label>
+                                        <input type="number" name="minCredits" value={upcomingForm.minCredits} onChange={handleUpcomingFormChange} />
+                                    </div>
+
+                                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '5px' }}>Allowed Departments</label>
+                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                            {['CSE', 'CSBS', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL'].map(dept => (
+                                                <label key={dept} style={{ padding: '5px 10px', background: '#f5f5f5', borderRadius: '4px' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        value={dept}
+                                                        checked={upcomingForm.allowedDepartments.includes(dept)}
+                                                        onChange={(e) => handleMultiSelectChange(e, 'allowedDepartments')}
+                                                    /> {dept}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', marginBottom: '5px' }}>Eligible Years</label>
+                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                            {['1st', '2nd', '3rd', '4th'].map(year => (
+                                                <label key={year} style={{ padding: '5px 10px', background: '#f5f5f5', borderRadius: '4px' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        value={year}
+                                                        checked={upcomingForm.eligibleYears.includes(year)}
+                                                        onChange={(e) => handleMultiSelectChange(e, 'eligibleYears')}
+                                                    /> {year}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                     <div className="form-group">
                                         <label>Poster Image</label>
                                         <input type="file" accept="image/*" onChange={handlePosterChange} />
                                     </div>
                                 </div>
                                 <button type="submit" className="submit-btn" disabled={submittingUpcoming} style={{ marginTop: '20px' }}>
-                                    {submittingUpcoming ? 'Creating...' : 'Create Hackathon'}
+                                    {submittingUpcoming ? 'Creating...' : 'Create Event'}
                                 </button>
                             </form>
                         </div>
@@ -844,7 +941,7 @@ const AdminDashboard = () => {
                             <div key={hackathon._id} className="hackathon-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                                 {hackathon.posterPath && (
                                     <img
-                                        src={`http://localhost:5000/${hackathon.posterPath}`}
+                                        src={getAssetUrl(hackathon.posterPath)}
                                         alt={hackathon.title}
                                         style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px', marginBottom: '15px' }}
                                     />
