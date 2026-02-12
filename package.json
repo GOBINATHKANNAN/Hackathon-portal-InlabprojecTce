@@ -1,0 +1,26 @@
+{
+  "name": "tce-csbs-hackahon-portal-main",
+  "version": "1.0.0",
+  "description": "A comprehensive web application for managing student hackathon participations, verifying completions, and generating reports for the Department of Computer Science and Business Systems, Thiagarajar College of Engineering.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GOBINATHKANNAN/Hackathon-portal-InlabprojecTce.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GOBINATHKANNAN/Hackathon-portal-InlabprojecTce/issues"
+  },
+  "homepage": "https://github.com/GOBINATHKANNAN/Hackathon-portal-InlabprojecTce#readme",
+  "dependencies": {
+    "mongodb": "^7.1.0"
+  }
+}
